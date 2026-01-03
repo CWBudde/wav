@@ -145,12 +145,12 @@ func TestEncoderRoundTrip(t *testing.T) {
 				t.Fatalf("the reported number of frames didn't support roundtripping, exp: %d, got: %d", len(buf.Data), len(nBuf.Data))
 			}
 			for i := 0; i < len(buf.Data); i++ {
-				if buf.Data[i] != nBuf.Data[i] {
-					max := len(buf.Data)
-					if i+3 < max {
-						max = i + 3
+				if !float32ApproxEqual(buf.Data[i], nBuf.Data[i], 1e-5) {
+					end := len(buf.Data)
+					if i+3 < end {
+						end = i + 3
 					}
-					t.Fatalf("frame value at position %d: %d -> %d\ndidn't match new buffer position %d: %d -> %d", i, buf.Data[:i+1], buf.Data[i+1:max], i, nBuf.Data[:i+1], nBuf.Data[i+1:max])
+					t.Fatalf("frame value at position %d: %v\ndidn't match new buffer position %d: %v", i, buf.Data[i:end], i, nBuf.Data[i:end])
 				}
 			}
 		})

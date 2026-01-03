@@ -64,7 +64,7 @@ func (e *Encoder) AddBE(src interface{}) error {
 	return binary.Write(e.w, binary.BigEndian, src)
 }
 
-func (e *Encoder) addBuffer(buf *audio.IntBuffer) error {
+func (e *Encoder) addBuffer(buf *audio.Float32Buffer) error {
 	if buf == nil {
 		return fmt.Errorf("can't add a nil buffer")
 	}
@@ -75,21 +75,33 @@ func (e *Encoder) addBuffer(buf *audio.IntBuffer) error {
 	for i := 0; i < frameCount; i++ {
 		for j := 0; j < buf.Format.NumChannels; j++ {
 			v := buf.Data[i*buf.Format.NumChannels+j]
+			if e.WavAudioFormat == wavFormatIEEEFloat {
+				if e.BitDepth != 32 {
+					return fmt.Errorf("unsupported float bit depth %d", e.BitDepth)
+				}
+				if err = binary.Write(e.buf, binary.LittleEndian, clampFloat32(v, -1, 1)); err != nil {
+					return err
+				}
+				continue
+			}
+			if e.WavAudioFormat != wavFormatPCM {
+				return fmt.Errorf("unsupported wav format %d", e.WavAudioFormat)
+			}
 			switch e.BitDepth {
 			case 8:
-				if err = binary.Write(e.buf, binary.LittleEndian, uint8(v)); err != nil {
+				if err = binary.Write(e.buf, binary.LittleEndian, float32ToPCMUint8(v)); err != nil {
 					return err
 				}
 			case 16:
-				if err = binary.Write(e.buf, binary.LittleEndian, int16(v)); err != nil {
+				if err = binary.Write(e.buf, binary.LittleEndian, int16(float32ToPCMInt32(v, 16))); err != nil {
 					return err
 				}
 			case 24:
-				if err = binary.Write(e.buf, binary.LittleEndian, audio.Int32toInt24LEBytes(int32(v))); err != nil {
+				if err = binary.Write(e.buf, binary.LittleEndian, audio.Int32toInt24LEBytes(float32ToPCMInt32(v, 24))); err != nil {
 					return err
 				}
 			case 32:
-				if err = binary.Write(e.buf, binary.LittleEndian, int32(v)); err != nil {
+				if err = binary.Write(e.buf, binary.LittleEndian, float32ToPCMInt32(v, 32)); err != nil {
 					return err
 				}
 			default:
@@ -175,7 +187,7 @@ func (e *Encoder) writeHeader() error {
 
 // Write encodes and writes the passed buffer to the underlying writer.
 // Don't forget to Close() the encoder or the file won't be valid.
-func (e *Encoder) Write(buf *audio.IntBuffer) error {
+func (e *Encoder) Write(buf *audio.Float32Buffer) error {
 	if !e.wroteHeader {
 		if err := e.writeHeader(); err != nil {
 			return err
@@ -219,7 +231,31 @@ func (e *Encoder) WriteFrame(value interface{}) error {
 	}
 
 	e.frames++
-	return e.AddLE(value)
+	switch v := value.(type) {
+	case float32:
+		if e.WavAudioFormat == wavFormatIEEEFloat {
+			return e.AddLE(clampFloat32(v, -1, 1))
+		}
+		if e.WavAudioFormat != wavFormatPCM {
+			return fmt.Errorf("unsupported wav format %d", e.WavAudioFormat)
+		}
+		switch e.BitDepth {
+		case 8:
+			return e.AddLE(float32ToPCMUint8(v))
+		case 16:
+			return e.AddLE(int16(float32ToPCMInt32(v, 16)))
+		case 24:
+			return e.AddLE(audio.Int32toInt24LEBytes(float32ToPCMInt32(v, 24)))
+		case 32:
+			return e.AddLE(float32ToPCMInt32(v, 32))
+		default:
+			return fmt.Errorf("can't add frames of bit size %d", e.BitDepth)
+		}
+	case float64:
+		return e.WriteFrame(float32(v))
+	default:
+		return e.AddLE(value)
+	}
 }
 
 func (e *Encoder) writeMetadata() error {

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"time"
 
 	"github.com/go-audio/audio"
@@ -234,7 +235,7 @@ func (d *Decoder) WasPCMAccessed() bool {
 // FullPCMBuffer is an inefficient way to access all the PCM data contained in the
 // audio container. The entire PCM data is held in memory.
 // Consider using PCMBuffer() instead.
-func (d *Decoder) FullPCMBuffer() (*audio.IntBuffer, error) {
+func (d *Decoder) FullPCMBuffer() (*audio.Float32Buffer, error) {
 	if !d.WasPCMAccessed() {
 		err := d.FwdToPCM()
 		if err != nil {
@@ -249,10 +250,14 @@ func (d *Decoder) FullPCMBuffer() (*audio.IntBuffer, error) {
 		SampleRate:  int(d.SampleRate),
 	}
 
-	buf := &audio.IntBuffer{Data: make([]int, 4096), Format: format, SourceBitDepth: int(d.BitDepth)}
+	buf := &audio.Float32Buffer{
+		Data:           make([]float32, 4096),
+		Format:         format,
+		SourceBitDepth: int(d.BitDepth),
+	}
 	bytesPerSample := (d.BitDepth-1)/8 + 1
 	sampleBufData := make([]byte, bytesPerSample)
-	decodeF, err := sampleDecodeFunc(int(d.BitDepth))
+	decodeF, err := sampleDecodeFloat32Func(int(d.BitDepth), d.WavAudioFormat)
 	if err != nil {
 		return nil, fmt.Errorf("could not get sample decode func %w", err)
 	}
@@ -266,7 +271,7 @@ func (d *Decoder) FullPCMBuffer() (*audio.IntBuffer, error) {
 		i++
 		// grow the underlying slice if needed
 		if i == len(buf.Data) {
-			buf.Data = append(buf.Data, make([]int, 4096)...)
+			buf.Data = append(buf.Data, make([]float32, 4096)...)
 		}
 	}
 	buf.Data = buf.Data[:i]
@@ -279,7 +284,7 @@ func (d *Decoder) FullPCMBuffer() (*audio.IntBuffer, error) {
 }
 
 // PCMBuffer populates the passed PCM buffer
-func (d *Decoder) PCMBuffer(buf *audio.IntBuffer) (n int, err error) {
+func (d *Decoder) PCMBuffer(buf *audio.Float32Buffer) (n int, err error) {
 	if buf == nil {
 		return 0, nil
 	}
@@ -300,7 +305,7 @@ func (d *Decoder) PCMBuffer(buf *audio.IntBuffer) (n int, err error) {
 	}
 
 	buf.SourceBitDepth = int(d.BitDepth)
-	decodeF, err := sampleDecodeFunc(int(d.BitDepth))
+	decodeF, err := sampleDecodeFloat32Func(int(d.BitDepth), d.WavAudioFormat)
 	if err != nil {
 		return 0, fmt.Errorf("could not get sample decode func %w", err)
 	}
@@ -510,34 +515,47 @@ func sampleDecodeFunc(bitsPerSample int) (func(io.Reader, []byte) (int, error), 
 	}
 }
 
-// sampleDecodeFloat64Func returns a function that can be used to convert
-// a byte range into a float64 value based on the amount of bits used per sample.
-func sampleFloat64DecodeFunc(bitsPerSample int) (func([]byte) float64, error) {
-	bytesPerSample := bitsPerSample / 8
-	switch bytesPerSample {
-	case 1:
-		// 8bit values are unsigned
-		return func(s []byte) float64 {
-			return float64(uint8(s[0]))
-		}, nil
-	case 2:
-		return func(s []byte) float64 {
-			return float64(int(s[0]) + int(s[1])<<8)
-		}, nil
-	case 3:
-		return func(s []byte) float64 {
-			var output int32
-			output |= int32(s[2]) << 0
-			output |= int32(s[1]) << 8
-			output |= int32(s[0]) << 16
-			return float64(output)
-		}, nil
-	case 4:
-		// TODO: fix the float64 conversion (current int implementation)
-		return func(s []byte) float64 {
-			return float64(int(s[0]) + int(s[1])<<8 + int(s[2])<<16 + int(s[3])<<24)
-		}, nil
-	default:
-		return nil, fmt.Errorf("unhandled byte depth:%d", bitsPerSample)
+// sampleDecodeFloat32Func returns a function that can be used to convert
+// a byte range into a normalized float32 value.
+func sampleDecodeFloat32Func(bitsPerSample int, wavFormat uint16) (func(io.Reader, []byte) (float32, error), error) {
+	if wavFormat == wavFormatIEEEFloat {
+		switch bitsPerSample {
+		case 32:
+			return func(r io.Reader, buf []byte) (float32, error) {
+				_, err := r.Read(buf[:4])
+				if err != nil {
+					return 0, err
+				}
+				value := math.Float32frombits(binary.LittleEndian.Uint32(buf[:4]))
+				return clampFloat32(value, -1, 1), nil
+			}, nil
+		case 64:
+			return func(r io.Reader, buf []byte) (float32, error) {
+				_, err := r.Read(buf[:8])
+				if err != nil {
+					return 0, err
+				}
+				value := math.Float64frombits(binary.LittleEndian.Uint64(buf[:8]))
+				return clampFloat32(float32(value), -1, 1), nil
+			}, nil
+		default:
+			return nil, fmt.Errorf("unhandled float bit depth:%d", bitsPerSample)
+		}
 	}
+
+	if wavFormat != wavFormatPCM {
+		return nil, fmt.Errorf("unsupported wav format:%d", wavFormat)
+	}
+
+	decodeInt, err := sampleDecodeFunc(bitsPerSample)
+	if err != nil {
+		return nil, err
+	}
+	return func(r io.Reader, buf []byte) (float32, error) {
+		value, err := decodeInt(r, buf)
+		if err != nil {
+			return 0, err
+		}
+		return normalizePCMInt(value, bitsPerSample), nil
+	}, nil
 }

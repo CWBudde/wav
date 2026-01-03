@@ -11,7 +11,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/go-audio/wav"
+	"github.com/cwbudde/wav"
 )
 
 var (

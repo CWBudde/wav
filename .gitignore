@@ -1,3 +1,24 @@
+# Output
 coverage.txt
+testOutput/
+bin/
+dist/
+
+# Go
 vendor/*
 !vendor/modules.txt
+*.exe
+*.test
+*.prof
+go.work
+go.work.sum
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db

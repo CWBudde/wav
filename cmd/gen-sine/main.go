@@ -6,7 +6,7 @@ import (
 	"math"
 	"os"
 
-	"github.com/go-audio/wav"
+	"github.com/cwbudde/wav"
 )
 
 func main() {
@@ -29,7 +29,7 @@ func main() {
 
 	for i := 0; i < numSamples; i++ {
 		fv := math.Sin(float64(i) / sampleRate * *frequency * 2 * math.Pi)
-		v := uint16(fv * 32767)
+		v := float32(fv)
 		wavOut.WriteFrame(v)
 	}
 }

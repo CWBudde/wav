@@ -3,7 +3,6 @@ package wav
 import (
 	"os"
 	"path/filepath"
-	"reflect"
 	"testing"
 	"time"
 
@@ -36,7 +35,7 @@ func TestDecoderRewind(t *testing.T) {
 	defer f.Close()
 	d := NewDecoder(f)
 	d.ReadInfo()
-	buf := &audio.IntBuffer{Format: d.Format(), Data: make([]int, 512)}
+	buf := &audio.Float32Buffer{Format: d.Format(), Data: make([]float32, 512)}
 	n, err := d.PCMBuffer(buf)
 	if err != nil {
 		t.Fatal(err)
@@ -47,7 +46,7 @@ func TestDecoderRewind(t *testing.T) {
 	if err := d.Rewind(); err != nil {
 		t.Fatal(err)
 	}
-	newBuf := &audio.IntBuffer{Format: d.Format(), Data: make([]int, 512)}
+	newBuf := &audio.Float32Buffer{Format: d.Format(), Data: make([]float32, 512)}
 	n, err = d.PCMBuffer(newBuf)
 	if err != nil {
 		t.Fatal(err)
@@ -55,9 +54,7 @@ func TestDecoderRewind(t *testing.T) {
 	if n != 512 {
 		t.Fatalf("expected to read 512 samples but got %d", n)
 	}
-	if !reflect.DeepEqual(buf.Data, newBuf.Data) {
-		t.Fatal("expected to read the same data after rewinding")
-	}
+	assertFloat32SlicesClose(t, buf.Data, newBuf.Data, 1e-6)
 }
 
 func TestDecoder_Duration(t *testing.T) {
@@ -192,8 +189,8 @@ func TestDecoderMisalignedInstChunk(t *testing.T) {
 	defer f.Close()
 
 	d := NewDecoder(f)
-	intBuf := make([]int, 255)
-	buf := &audio.IntBuffer{Data: intBuf}
+	floatBuf := make([]float32, 255)
+	buf := &audio.Float32Buffer{Data: floatBuf}
 	if _, err := d.PCMBuffer(buf); err != nil {
 		t.Fatal(err)
 	}
@@ -243,9 +240,9 @@ func TestDecoder_PCMBuffer(t *testing.T) {
 			defer f.Close()
 			d := NewDecoder(f)
 
-			samples := []int{}
-			intBuf := make([]int, 255)
-			buf := &audio.IntBuffer{Data: intBuf}
+			samples := []float32{}
+			floatBuf := make([]float32, 255)
+			buf := &audio.Float32Buffer{Data: floatBuf}
 			var samplesAvailable int
 			var n int
 			for err == nil {
@@ -273,8 +270,9 @@ func TestDecoder_PCMBuffer(t *testing.T) {
 					if i >= len(tc.samples) {
 						break
 					}
-					if sample != tc.samples[i] {
-						t.Fatalf("Expected %d at position %d, but got %d", tc.samples[i], i, sample)
+					expected := normalizePCMInt(tc.samples[i], tc.bitDepth)
+					if !float32ApproxEqual(sample, expected, 1e-5) {
+						t.Fatalf("Expected %.6f at position %d, but got %.6f", expected, i, sample)
 					}
 				}
 			}
@@ -340,8 +338,9 @@ func TestDecoder_FullPCMBuffer(t *testing.T) {
 			t.Fatalf("the length of the buffer (%d) didn't match what we expected (%d)", len(buf.Data), tc.numSamples)
 		}
 		for i := 0; i < len(tc.samples); i++ {
-			if buf.Data[i] != tc.samples[i] {
-				t.Fatalf("Expected %d at position %d, but got %d", tc.samples[i], i, buf.Data[i])
+			expected := normalizePCMInt(tc.samples[i], tc.bitDepth)
+			if !float32ApproxEqual(buf.Data[i], expected, 1e-5) {
+				t.Fatalf("Expected %.6f at position %d, but got %.6f", expected, i, buf.Data[i])
 			}
 		}
 		if buf.Format.SampleRate != tc.sampleRate {
@@ -364,8 +363,7 @@ func totaledDecoder(d *Decoder) (total int64, err error) {
 	}
 
 	chunkSize := 4096
-	bits := d.BitDepth
-	buf := &audio.IntBuffer{Data: make([]int, chunkSize), Format: format}
+	buf := &audio.Float32Buffer{Data: make([]float32, chunkSize), Format: format}
 	var n int
 
 	for err == nil {
@@ -381,11 +379,13 @@ func totaledDecoder(d *Decoder) (total int64, err error) {
 			if i == n {
 				break
 			}
-			switch bits {
+			switch int(d.BitDepth) {
+			case 8:
+				total += int64(float32ToPCMUint8(s))
 			case 16:
-				total += int64(int32(int16(s)))
+				total += int64(int16(float32ToPCMInt32(s, 16)))
 			default:
-				total += int64(int32(s))
+				total += int64(float32ToPCMInt32(s, int(d.BitDepth)))
 			}
 		}
 		if n != chunkSize {
@@ -397,4 +397,24 @@ func totaledDecoder(d *Decoder) (total int64, err error) {
 	}
 
 	return total, err
+}
+
+func float32ApproxEqual(value, expected, epsilon float32) bool {
+	diff := value - expected
+	if diff < 0 {
+		diff = -diff
+	}
+	return diff <= epsilon
+}
+
+func assertFloat32SlicesClose(t *testing.T, got, expected []float32, epsilon float32) {
+	t.Helper()
+	if len(got) != len(expected) {
+		t.Fatalf("expected %d samples but got %d", len(expected), len(got))
+	}
+	for i := range got {
+		if !float32ApproxEqual(got[i], expected[i], epsilon) {
+			t.Fatalf("expected %.6f at position %d, but got %.6f", expected[i], i, got[i])
+		}
+	}
 }

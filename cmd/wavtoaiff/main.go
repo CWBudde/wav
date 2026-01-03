@@ -6,14 +6,15 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"math"
 	"os"
 	"os/user"
 	"path/filepath"
 	"strings"
 
+	"github.com/cwbudde/wav"
 	"github.com/go-audio/aiff"
 	"github.com/go-audio/audio"
-	"github.com/go-audio/wav"
 )
 
 var (
@@ -67,7 +68,7 @@ func main() {
 	}
 
 	bufferSize := 1000000
-	buf := &audio.IntBuffer{Data: make([]int, bufferSize), Format: format}
+	buf := &audio.Float32Buffer{Data: make([]float32, bufferSize), Format: format}
 	var n int
 	for err == nil {
 		n, err = d.PCMBuffer(buf)
@@ -77,10 +78,12 @@ func main() {
 		if n == 0 {
 			break
 		}
-		if n != len(buf.Data) {
-			buf.Data = buf.Data[:n]
+		data := buf.Data
+		if n != len(data) {
+			data = data[:n]
 		}
-		if err := e.Write(buf); err != nil {
+		intBuf := float32ToIntBuffer(data, format, int(d.BitDepth))
+		if err := e.Write(intBuf); err != nil {
 			panic(err)
 		}
 	}
@@ -89,4 +92,80 @@ func main() {
 		panic(err)
 	}
 	fmt.Printf("Wav file converted to %s\n", outPath)
+}
+
+func float32ToIntBuffer(data []float32, format *audio.Format, bitDepth int) *audio.IntBuffer {
+	intBuf := &audio.IntBuffer{
+		Format:         format,
+		SourceBitDepth: bitDepth,
+		Data:           make([]int, len(data)),
+	}
+	for i, v := range data {
+		intBuf.Data[i] = float32ToPCMInt(v, bitDepth)
+	}
+	return intBuf
+}
+
+func float32ToPCMInt(value float32, bitDepth int) int {
+	value = clampFloat32(value, -1, 1)
+	switch bitDepth {
+	case 8:
+		return int(float32ToPCMUint8(value))
+	case 16:
+		return int(float32ToPCMInt32(value, 16))
+	case 24:
+		return int(float32ToPCMInt32(value, 24))
+	case 32:
+		return int(float32ToPCMInt32(value, 32))
+	default:
+		return 0
+	}
+}
+
+func float32ToPCMUint8(value float32) uint8 {
+	value = clampFloat32(value, -1, 1)
+	scaled := int(math.Round(float64((value + 1.0) * 127.5)))
+	if scaled < 0 {
+		return 0
+	}
+	if scaled > 255 {
+		return 255
+	}
+	return uint8(scaled)
+}
+
+func float32ToPCMInt32(value float32, bitDepth int) int32 {
+	value = clampFloat32(value, -1, 1)
+	switch bitDepth {
+	case 16:
+		return clampScaledPCM(value, 32768.0, 32767)
+	case 24:
+		return clampScaledPCM(value, 8388608.0, 8388607)
+	case 32:
+		return clampScaledPCM(value, 2147483648.0, 2147483647)
+	default:
+		return 0
+	}
+}
+
+func clampScaledPCM(value float32, scale float64, max int64) int32 {
+	sample := int64(math.Round(float64(value) * scale))
+	if sample > max {
+		sample = max
+	}
+	min := int64(-scale)
+	if sample < min {
+		sample = min
+	}
+	return int32(sample)
+}
+
+func clampFloat32(value, min, max float32) float32 {
+	if value < min {
+		return min
+	}
+	if value > max {
+		return max
+	}
+	return value
 }
