@@ -96,19 +96,19 @@ func DecodeSamplerChunk(d *Decoder, ch *riff.Chunk) error {
 				if err != nil {
 					return err
 				}
-				err := binary.Read(r, binary.LittleEndian, &sl.Start)
+				err = binary.Read(r, binary.LittleEndian, &sl.Start)
 				if err != nil {
 					return err
 				}
-				err := binary.Read(r, binary.LittleEndian, &sl.End)
+				err = binary.Read(r, binary.LittleEndian, &sl.End)
 				if err != nil {
 					return err
 				}
-				err := binary.Read(r, binary.LittleEndian, &sl.Fraction)
+				err = binary.Read(r, binary.LittleEndian, &sl.Fraction)
 				if err != nil {
 					return err
 				}
-				err := binary.Read(r, binary.LittleEndian, &sl.PlayCount)
+				err = binary.Read(r, binary.LittleEndian, &sl.PlayCount)
 				if err != nil {
 					return err
 				}

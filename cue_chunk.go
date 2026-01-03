@@ -102,15 +102,15 @@ func DecodeCueChunk(d *Decoder, ch *riff.Chunk) error {
 				}
 
 				copy(c.DataChunkID[:], scratch[:4])
-				err := binary.Read(r, binary.LittleEndian, &c.ChunkStart)
+				err = binary.Read(r, binary.LittleEndian, &c.ChunkStart)
 				if err != nil {
 					return err
 				}
-				err := binary.Read(r, binary.LittleEndian, &c.BlockStart)
+				err = binary.Read(r, binary.LittleEndian, &c.BlockStart)
 				if err != nil {
 					return err
 				}
-				err := binary.Read(r, binary.LittleEndian, &c.SampleOffset)
+				err = binary.Read(r, binary.LittleEndian, &c.SampleOffset)
 				if err != nil {
 					return err
 				}
