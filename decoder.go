@@ -14,13 +14,13 @@ import (
 )
 
 var (
-	// CIDList is the chunk ID for a LIST chunk
+	// CIDList is the chunk ID for a LIST chunk.
 	CIDList = [4]byte{'L', 'I', 'S', 'T'}
-	// CIDSmpl is the chunk ID for a smpl chunk
+	// CIDSmpl is the chunk ID for a smpl chunk.
 	CIDSmpl = [4]byte{'s', 'm', 'p', 'l'}
-	// CIDINFO is the chunk ID for an INFO chunk
+	// CIDINFO is the chunk ID for an INFO chunk.
 	CIDInfo = []byte{'I', 'N', 'F', 'O'}
-	// CIDCue is the chunk ID for the cue chunk
+	// CIDCue is the chunk ID for the cue chunk.
 	CIDCue = [4]byte{'c', 'u', 'e', 0x20}
 )
 
@@ -54,7 +54,7 @@ func NewDecoder(r io.ReadSeeker) *Decoder {
 	}
 }
 
-// Seek provides access to the cursor position in the PCM data
+// Seek provides access to the cursor position in the PCM data.
 func (d *Decoder) Seek(offset int64, whence int) (int64, error) {
 	return d.r.Seek(offset, whence)
 }
@@ -62,7 +62,6 @@ func (d *Decoder) Seek(offset int64, whence int) (int64, error) {
 // Rewind allows the decoder to be rewound to the beginning of the PCM data.
 // This is useful if you want to keep on decoding the same file in a loop.
 func (d *Decoder) Rewind() error {
-
 	_, err := d.r.Seek(0, io.SeekStart)
 	if err != nil {
 		return fmt.Errorf("failed to seek back to the start %w", err)
@@ -73,10 +72,12 @@ func (d *Decoder) Rewind() error {
 	d.PCMChunk = nil
 	d.err = nil
 	d.NumChans = 0
+
 	err = d.FwdToPCM()
 	if err != nil {
 		return fmt.Errorf("failed to seek to the PCM data: %w", err)
 	}
+
 	return nil
 }
 
@@ -85,14 +86,16 @@ func (d *Decoder) SampleBitDepth() int32 {
 	if d == nil {
 		return 0
 	}
+
 	return int32(d.BitDepth)
 }
 
-// PCMLen returns the total number of bytes in the PCM data chunk
+// PCMLen returns the total number of bytes in the PCM data chunk.
 func (d *Decoder) PCMLen() int64 {
 	if d == nil {
 		return 0
 	}
+
 	return int64(d.PCMSize)
 }
 
@@ -101,6 +104,7 @@ func (d *Decoder) Err() error {
 	if errors.Is(d.err, io.EOF) {
 		return nil
 	}
+
 	return d.err
 }
 
@@ -109,6 +113,7 @@ func (d *Decoder) EOF() bool {
 	if d == nil || errors.Is(d.err, io.EOF) {
 		return true
 	}
+
 	return false
 }
 
@@ -118,12 +123,15 @@ func (d *Decoder) IsValidFile() bool {
 	if d.err != nil {
 		return false
 	}
+
 	if d.NumChans < 1 {
 		return false
 	}
+
 	if d.BitDepth < 8 {
 		return false
 	}
+
 	if d, err := d.Duration(); err != nil || d <= 0 {
 		return false
 	}
@@ -144,10 +152,13 @@ func (d *Decoder) ReadMetadata() {
 	if d.Metadata != nil {
 		return
 	}
+
 	d.ReadInfo()
+
 	if d.Err() != nil || d.Metadata != nil {
 		return
 	}
+
 	var (
 		chunk *riff.Chunk
 		err   error
@@ -160,23 +171,27 @@ func (d *Decoder) ReadMetadata() {
 
 		switch chunk.ID {
 		case CIDList:
-			if err = DecodeListChunk(d, chunk); err != nil {
+			err = DecodeListChunk(d, chunk)
+			if err != nil {
 				if !errors.Is(err, io.EOF) {
 					d.err = err
 				}
 			}
+
 			if d.Metadata != nil && d.Metadata.SamplerInfo != nil {
 				// we got everything we were looking for
 				break
 			}
 		case CIDSmpl:
-			if err = DecodeSamplerChunk(d, chunk); err != nil {
+			err = DecodeSamplerChunk(d, chunk)
+			if err != nil {
 				if !errors.Is(err, io.EOF) {
 					d.err = err
 				}
 			}
 		case CIDCue:
-			if err = DecodeCueChunk(d, chunk); err != nil {
+			err = DecodeCueChunk(d, chunk)
+			if err != nil {
 				if !errors.Is(err, io.EOF) {
 					d.err = err
 				}
@@ -186,15 +201,15 @@ func (d *Decoder) ReadMetadata() {
 			chunk.Drain()
 		}
 	}
-
 }
 
 // FwdToPCM forwards the underlying reader until the start of the PCM chunk.
 // If the PCM chunk was already read, no data will be found (you need to rewind).
 func (d *Decoder) FwdToPCM() error {
 	if d == nil {
-		return fmt.Errorf("PCM data not found")
+		return errors.New("PCM data not found")
 	}
+
 	d.err = d.readHeaders()
 	if d.err != nil {
 		return nil
@@ -206,19 +221,25 @@ func (d *Decoder) FwdToPCM() error {
 		if d.err != nil {
 			return d.err
 		}
+
 		if chunk.ID == riff.DataFormatID {
 			d.PCMSize = chunk.Size
 			d.PCMChunk = chunk
+
 			break
 		}
+
 		if chunk.ID == CIDList {
 			DecodeListChunk(d, chunk)
 		}
+
 		chunk.Drain()
 	}
+
 	if chunk == nil {
-		return fmt.Errorf("PCM data not found")
+		return errors.New("PCM data not found")
 	}
+
 	d.pcmDataAccessed = true
 
 	return nil
@@ -229,6 +250,7 @@ func (d *Decoder) WasPCMAccessed() bool {
 	if d == nil {
 		return false
 	}
+
 	return d.pcmDataAccessed
 }
 
@@ -242,9 +264,11 @@ func (d *Decoder) FullPCMBuffer() (*audio.Float32Buffer, error) {
 			return nil, d.err
 		}
 	}
+
 	if d.PCMChunk == nil {
 		return nil, errors.New("PCM chunk not found")
 	}
+
 	format := &audio.Format{
 		NumChannels: int(d.NumChans),
 		SampleRate:  int(d.SampleRate),
@@ -257,6 +281,7 @@ func (d *Decoder) FullPCMBuffer() (*audio.Float32Buffer, error) {
 	}
 	bytesPerSample := (d.BitDepth-1)/8 + 1
 	sampleBufData := make([]byte, bytesPerSample)
+
 	decodeF, err := sampleDecodeFloat32Func(int(d.BitDepth), d.WavAudioFormat)
 	if err != nil {
 		return nil, fmt.Errorf("could not get sample decode func %w", err)
@@ -268,12 +293,14 @@ func (d *Decoder) FullPCMBuffer() (*audio.Float32Buffer, error) {
 		if err != nil {
 			break
 		}
+
 		i++
 		// grow the underlying slice if needed
 		if i == len(buf.Data) {
 			buf.Data = append(buf.Data, make([]float32, 4096)...)
 		}
 	}
+
 	buf.Data = buf.Data[:i]
 
 	if errors.Is(err, io.EOF) {
@@ -283,7 +310,7 @@ func (d *Decoder) FullPCMBuffer() (*audio.Float32Buffer, error) {
 	return buf, err
 }
 
-// PCMBuffer populates the passed PCM buffer
+// PCMBuffer populates the passed PCM buffer.
 func (d *Decoder) PCMBuffer(buf *audio.Float32Buffer) (n int, err error) {
 	if buf == nil {
 		return 0, nil
@@ -295,6 +322,7 @@ func (d *Decoder) PCMBuffer(buf *audio.Float32Buffer) (n int, err error) {
 			return 0, d.err
 		}
 	}
+
 	if d.PCMChunk == nil {
 		return 0, ErrPCMChunkNotFound
 	}
@@ -305,6 +333,7 @@ func (d *Decoder) PCMBuffer(buf *audio.Float32Buffer) (n int, err error) {
 	}
 
 	buf.SourceBitDepth = int(d.BitDepth)
+
 	decodeF, err := sampleDecodeFloat32Func(int(d.BitDepth), d.WavAudioFormat)
 	if err != nil {
 		return 0, fmt.Errorf("could not get sample decode func %w", err)
@@ -315,19 +344,25 @@ func (d *Decoder) PCMBuffer(buf *audio.Float32Buffer) (n int, err error) {
 	// we need to cap the buffer size to not be bigger than the pcm chunk.
 	size := len(buf.Data) * bPerSample
 	tmpBuf := make([]byte, size)
+
 	var m int
+
 	m, err = d.PCMChunk.R.Read(tmpBuf)
 	if err != nil {
 		if errors.Is(err, io.EOF) {
 			return m, nil
 		}
+
 		return m, err
 	}
+
 	if m == 0 {
 		return m, nil
 	}
+
 	bufR := bytes.NewReader(tmpBuf[:m])
 	sampleBuf := make([]byte, bPerSample, bPerSample)
+
 	var misaligned bool
 	if m%bPerSample > 0 {
 		misaligned = true
@@ -342,10 +377,13 @@ func (d *Decoder) PCMBuffer(buf *audio.Float32Buffer) (n int, err error) {
 			if misaligned {
 				n--
 			}
+
 			break
 		}
 	}
+
 	buf.Format = format
+
 	if errors.Is(err, io.EOF) {
 		err = nil
 	}
@@ -358,16 +396,17 @@ func (d *Decoder) Format() *audio.Format {
 	if d == nil {
 		return nil
 	}
+
 	return &audio.Format{
 		NumChannels: int(d.NumChans),
 		SampleRate:  int(d.SampleRate),
 	}
 }
 
-// NextChunk returns the next available chunk
+// NextChunk returns the next available chunk.
 func (d *Decoder) NextChunk() (*riff.Chunk, error) {
 	if d.err = d.readHeaders(); d.err != nil {
-		d.err = fmt.Errorf("failed to read header - %v", d.err)
+		d.err = fmt.Errorf("failed to read header - %w", d.err)
 		return nil, d.err
 	}
 
@@ -378,7 +417,7 @@ func (d *Decoder) NextChunk() (*riff.Chunk, error) {
 
 	id, size, d.err = d.parser.IDnSize()
 	if d.err != nil {
-		d.err = fmt.Errorf("error reading chunk header - %v", d.err)
+		d.err = fmt.Errorf("error reading chunk header - %w", d.err)
 		return nil, d.err
 	}
 
@@ -398,14 +437,16 @@ func (d *Decoder) NextChunk() (*riff.Chunk, error) {
 		Size: int(size),
 		R:    io.LimitReader(d.r, int64(size)),
 	}
+
 	return c, d.err
 }
 
-// Duration returns the time duration for the current audio container
+// Duration returns the time duration for the current audio container.
 func (d *Decoder) Duration() (time.Duration, error) {
 	if d == nil || d.parser == nil {
 		return 0, errors.New("can't calculate the duration of a nil pointer")
 	}
+
 	return d.parser.Duration()
 }
 
@@ -414,7 +455,7 @@ func (d *Decoder) String() string {
 	return d.parser.String()
 }
 
-// readHeaders is safe to call multiple times
+// readHeaders is safe to call multiple times.
 func (d *Decoder) readHeaders() error {
 	if d == nil || d.NumChans > 0 {
 		return nil
@@ -424,17 +465,21 @@ func (d *Decoder) readHeaders() error {
 	if err != nil {
 		return err
 	}
+
 	d.parser.ID = id
 	if d.parser.ID != riff.RiffID {
-		return fmt.Errorf("%s - %s", d.parser.ID, riff.ErrFmtNotSupported)
+		return fmt.Errorf("%s - %w", d.parser.ID, riff.ErrFmtNotSupported)
 	}
+
 	d.parser.Size = size
 	if err := binary.Read(d.r, binary.BigEndian, &d.parser.Format); err != nil {
 		return err
 	}
 
-	var chunk *riff.Chunk
-	var rewindBytes int64
+	var (
+		chunk       *riff.Chunk
+		rewindBytes int64
+	)
 
 	for err == nil {
 		chunk, err = d.parser.NextChunk()
@@ -453,6 +498,7 @@ func (d *Decoder) readHeaders() error {
 			if rewindBytes > 0 {
 				d.r.Seek(-(rewindBytes + int64(chunk.Size) + 8), 1)
 			}
+
 			break
 		} else if chunk.ID == CIDList {
 			// The list chunk can be in the header or footer
@@ -503,6 +549,7 @@ func sampleDecodeFunc(bitsPerSample int) (func(io.Reader, []byte) (int, error), 
 			if err != nil {
 				return 0, err
 			}
+
 			return int(audio.Int24LETo32(buf[:3])), nil
 		}, nil
 	case 32:
@@ -526,7 +573,9 @@ func sampleDecodeFloat32Func(bitsPerSample int, wavFormat uint16) (func(io.Reade
 				if err != nil {
 					return 0, err
 				}
+
 				value := math.Float32frombits(binary.LittleEndian.Uint32(buf[:4]))
+
 				return clampFloat32(value, -1, 1), nil
 			}, nil
 		case 64:
@@ -535,7 +584,9 @@ func sampleDecodeFloat32Func(bitsPerSample int, wavFormat uint16) (func(io.Reade
 				if err != nil {
 					return 0, err
 				}
+
 				value := math.Float64frombits(binary.LittleEndian.Uint64(buf[:8]))
+
 				return clampFloat32(float32(value), -1, 1), nil
 			}, nil
 		default:
@@ -551,11 +602,13 @@ func sampleDecodeFloat32Func(bitsPerSample int, wavFormat uint16) (func(io.Reade
 	if err != nil {
 		return nil, err
 	}
+
 	return func(r io.Reader, buf []byte) (float32, error) {
 		value, err := decodeInt(r, buf)
 		if err != nil {
 			return 0, err
 		}
+
 		return normalizePCMInt(value, bitsPerSample), nil
 	}, nil
 }

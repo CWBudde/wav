@@ -17,12 +17,11 @@ import (
 	"github.com/go-audio/audio"
 )
 
-var (
-	flagPath = flag.String("path", "", "The path to the wav file to convert to aiff")
-)
+var flagPath = flag.String("path", "", "The path to the wav file to convert to aiff")
 
 func main() {
 	flag.Parse()
+
 	if *flagPath == "" {
 		fmt.Println("You must set the -path flag")
 		os.Exit(1)
@@ -53,6 +52,7 @@ func main() {
 	}
 
 	outPath := sourcePath[:len(sourcePath)-len(filepath.Ext(sourcePath))] + ".aif"
+
 	of, err := os.Create(outPath)
 	if err != nil {
 		fmt.Println("Failed to create", outPath)
@@ -69,21 +69,26 @@ func main() {
 
 	bufferSize := 1000000
 	buf := &audio.Float32Buffer{Data: make([]float32, bufferSize), Format: format}
+
 	var n int
 	for err == nil {
 		n, err = d.PCMBuffer(buf)
 		if err != nil {
 			break
 		}
+
 		if n == 0 {
 			break
 		}
+
 		data := buf.Data
 		if n != len(data) {
 			data = data[:n]
 		}
+
 		intBuf := float32ToIntBuffer(data, format, int(d.BitDepth))
-		if err := e.Write(intBuf); err != nil {
+		err := e.Write(intBuf)
+		if err != nil {
 			panic(err)
 		}
 	}
@@ -91,6 +96,7 @@ func main() {
 	if err := e.Close(); err != nil {
 		panic(err)
 	}
+
 	fmt.Printf("Wav file converted to %s\n", outPath)
 }
 
@@ -103,11 +109,13 @@ func float32ToIntBuffer(data []float32, format *audio.Format, bitDepth int) *aud
 	for i, v := range data {
 		intBuf.Data[i] = float32ToPCMInt(v, bitDepth)
 	}
+
 	return intBuf
 }
 
 func float32ToPCMInt(value float32, bitDepth int) int {
 	value = clampFloat32(value, -1, 1)
+
 	switch bitDepth {
 	case 8:
 		return int(float32ToPCMUint8(value))
@@ -124,18 +132,22 @@ func float32ToPCMInt(value float32, bitDepth int) int {
 
 func float32ToPCMUint8(value float32) uint8 {
 	value = clampFloat32(value, -1, 1)
+
 	scaled := int(math.Round(float64((value + 1.0) * 127.5)))
 	if scaled < 0 {
 		return 0
 	}
+
 	if scaled > 255 {
 		return 255
 	}
+
 	return uint8(scaled)
 }
 
 func float32ToPCMInt32(value float32, bitDepth int) int32 {
 	value = clampFloat32(value, -1, 1)
+
 	switch bitDepth {
 	case 16:
 		return clampScaledPCM(value, 32768.0, 32767)
@@ -149,14 +161,13 @@ func float32ToPCMInt32(value float32, bitDepth int) int32 {
 }
 
 func clampScaledPCM(value float32, scale float64, max int64) int32 {
-	sample := int64(math.Round(float64(value) * scale))
-	if sample > max {
-		sample = max
-	}
+	sample := min(int64(math.Round(float64(value)*scale)), max)
+
 	min := int64(-scale)
 	if sample < min {
 		sample = min
 	}
+
 	return int32(sample)
 }
 
@@ -164,8 +175,10 @@ func clampFloat32(value, min, max float32) float32 {
 	if value < min {
 		return min
 	}
+
 	if value > max {
 		return max
 	}
+
 	return value
 }

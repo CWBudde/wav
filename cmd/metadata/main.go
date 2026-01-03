@@ -14,20 +14,25 @@ func main() {
 		fmt.Println("You must pass the pass the path of the file to decode")
 		os.Exit(1)
 	}
+
 	f, err := os.Open(os.Args[1])
 	if err != nil {
 		panic(err)
 	}
 	defer f.Close()
+
 	dec := wav.NewDecoder(f)
 	dec.ReadMetadata()
+
 	if err := dec.Err(); err != nil {
 		log.Fatal(err)
 	}
+
 	if dec.Metadata == nil {
 		fmt.Println("No metadata present")
 		return
 	}
+
 	fmt.Printf("Artist: %s\n", dec.Metadata.Artist)
 	fmt.Printf("Title: %s\n", dec.Metadata.Title)
 	fmt.Printf("Comments: %s\n", dec.Metadata.Comments)
@@ -47,9 +52,11 @@ func main() {
 
 	fmt.Println("Sample Info:")
 	fmt.Printf("%+v\n", dec.Metadata.SamplerInfo)
+
 	for i, l := range dec.Metadata.SamplerInfo.Loops {
 		fmt.Printf("\tloop [%d]:\t%+v\n", i, l)
 	}
+
 	for i, c := range dec.Metadata.CuePoints {
 		fmt.Printf("\tcue point [%d]:\t%+v\n", i, c)
 	}

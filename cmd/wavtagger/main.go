@@ -24,30 +24,36 @@ var (
 	flagComments  = flag.String("comments", "", "File's comments")
 	flagCopyright = flag.String("copyright", "", "File's copyright")
 	flagGenre     = flag.String("genre", "", "File's genre")
-	// TODO: add other supported metadata types
+	// TODO: add other supported metadata types.
 )
 
 func main() {
 	flag.Parse()
+
 	if *flagFileToTag == "" && *flagDirToTag == "" {
 		fmt.Println("You need to pass -file or -dir to indicate what file or folder content to tag.")
 		os.Exit(1)
 	}
+
 	if *flagFileToTag != "" {
-		if err := tagFile(*flagFileToTag); err != nil {
+		err := tagFile(*flagFileToTag)
+		if err != nil {
 			fmt.Printf("Something went wrong when tagging %s - error: %v\n", *flagFileToTag, err)
 			os.Exit(1)
 		}
 	}
+
 	if *flagDirToTag != "" {
 		var filePath string
+
 		fileInfos, _ := os.ReadDir(*flagDirToTag)
 		for _, fi := range fileInfos {
 			if strings.HasPrefix(
 				strings.ToLower(filepath.Ext(fi.Name())),
 				".wav") {
 				filePath = filepath.Join(*flagDirToTag, fi.Name())
-				if err := tagFile(filePath); err != nil {
+				err := tagFile(filePath)
+				if err != nil {
 					fmt.Printf("Something went wrong tagging %s - %v\n", filePath, err)
 				}
 			}
@@ -60,11 +66,14 @@ func tagFile(path string) error {
 	if err != nil {
 		return fmt.Errorf("failed to open %s - %w", path, err)
 	}
+
 	d := wav.NewDecoder(in)
+
 	buf, err := d.FullPCMBuffer()
 	if err != nil {
 		return fmt.Errorf("couldn't read buffer %s %w", path, err)
 	}
+
 	in.Close()
 
 	outputDir := filepath.Join(filepath.Dir(path), "wavtagger")
@@ -85,14 +94,17 @@ func tagFile(path string) error {
 	if err := e.Write(buf); err != nil {
 		return fmt.Errorf("failed to write audio buffer - %w", err)
 	}
+
 	e.Metadata = &wav.Metadata{}
 	if *flagArtist != "" {
 		e.Metadata.Artist = *flagArtist
 	}
+
 	if *flagTitleRegexp != "" {
 		filename := filepath.Base(path)
 		filename = filename[:len(filename)-len(filepath.Ext(path))]
 		re := regexp.MustCompile(*flagTitleRegexp)
+
 		matches := re.FindStringSubmatch(filename)
 		if len(matches) > 0 {
 			e.Metadata.Title = matches[1]
@@ -100,6 +112,7 @@ func tagFile(path string) error {
 			fmt.Printf("No matches for title regexp %s in %s\n", *flagTitleRegexp, filename)
 		}
 	}
+
 	if *flagTitle != "" {
 		e.Metadata.Title = *flagTitle
 	}
@@ -107,15 +120,19 @@ func tagFile(path string) error {
 	if *flagComments != "" {
 		e.Metadata.Comments = *flagComments
 	}
+
 	if *flagCopyright != "" {
 		e.Metadata.Copyright = *flagCopyright
 	}
+
 	if *flagGenre != "" {
 		e.Metadata.Genre = *flagGenre
 	}
+
 	if err := e.Close(); err != nil {
 		return fmt.Errorf("failed to close %s - %w", outPath, err)
 	}
+
 	fmt.Println("Tagged file available at", outPath)
 
 	return nil

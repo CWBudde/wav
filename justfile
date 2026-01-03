@@ -12,11 +12,11 @@ bench:
 
 # Run linters
 lint:
-    golangci-lint run
+    GOFLAGS="-buildvcs=false" golangci-lint run
 
 # Run linters and fix issues
 lint-fix:
-    golangci-lint run --fix
+    GOFLAGS="-buildvcs=false" golangci-lint run --fix
 
 # Format code using treefmt
 fmt:

@@ -108,7 +108,7 @@ type SamplerInfo struct {
 	Loops []*SampleLoop
 }
 
-// SampleLoop indicates a loop and its properties within the audio file
+// SampleLoop indicates a loop and its properties within the audio file.
 type SampleLoop struct {
 	// CuePointID - The Cue Point ID specifies the unique ID that corresponds to one of the
 	// defined cue points in the cue point list. Furthermore, this ID

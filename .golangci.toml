@@ -11,6 +11,7 @@ disable = [
   'musttag',
   'nlreturn',
   'noctx',
+  'paralleltest',
   'recvcheck',
   'wsl',
 ]

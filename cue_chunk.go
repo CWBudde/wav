@@ -3,6 +3,7 @@ package wav
 import (
 	"bytes"
 	"encoding/binary"
+	"errors"
 	"fmt"
 
 	"github.com/go-audio/riff"
@@ -52,55 +53,72 @@ type CuePoint struct {
 // DecodeCueChunk decodes the optional cue chunk and extracts cue points.
 func DecodeCueChunk(d *Decoder, ch *riff.Chunk) error {
 	if ch == nil {
-		return fmt.Errorf("can't decode a nil chunk")
+		return errors.New("can't decode a nil chunk")
 	}
+
 	if d == nil {
-		return fmt.Errorf("nil decoder")
+		return errors.New("nil decoder")
 	}
+
 	if ch.ID == CIDCue {
 		// read the entire chunk in memory
 		buf := make([]byte, ch.Size)
+
 		var err error
 		if _, err = ch.Read(buf); err != nil {
 			return fmt.Errorf("failed to read the CUE chunk - %w", err)
 		}
+
 		r := bytes.NewReader(buf)
+
 		var nbrCues uint32
 		if err := binary.Read(r, binary.LittleEndian, &nbrCues); err != nil {
 			return fmt.Errorf("failed to read the number of cues - %w", err)
 		}
+
 		if nbrCues > 0 {
 			if d.Metadata == nil {
 				d.Metadata = &Metadata{}
 			}
+
 			d.Metadata.CuePoints = []*CuePoint{}
 			scratch := make([]byte, 4)
-			for i := uint32(0); i < nbrCues; i++ {
+
+			for range nbrCues {
 				c := &CuePoint{}
+
 				if _, err = r.Read(scratch); err != nil {
-					return fmt.Errorf("failed to read the cue point ID")
+					return errors.New("failed to read the cue point ID")
 				}
+
 				copy(c.ID[:], scratch[:4])
-				if err := binary.Read(r, binary.LittleEndian, &c.Position); err != nil {
+				err := binary.Read(r, binary.LittleEndian, &c.Position)
+				if err != nil {
 					return err
 				}
+
 				if _, err = r.Read(scratch); err != nil {
-					return fmt.Errorf("failed to read the data chunk id")
+					return errors.New("failed to read the data chunk id")
 				}
+
 				copy(c.DataChunkID[:], scratch[:4])
-				if err := binary.Read(r, binary.LittleEndian, &c.ChunkStart); err != nil {
+				err := binary.Read(r, binary.LittleEndian, &c.ChunkStart)
+				if err != nil {
 					return err
 				}
-				if err := binary.Read(r, binary.LittleEndian, &c.BlockStart); err != nil {
+				err := binary.Read(r, binary.LittleEndian, &c.BlockStart)
+				if err != nil {
 					return err
 				}
-				if err := binary.Read(r, binary.LittleEndian, &c.SampleOffset); err != nil {
+				err := binary.Read(r, binary.LittleEndian, &c.SampleOffset)
+				if err != nil {
 					return err
 				}
+
 				d.Metadata.CuePoints = append(d.Metadata.CuePoints, c)
 			}
 		}
-
 	}
+
 	return nil
 }

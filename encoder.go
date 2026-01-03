@@ -52,68 +52,81 @@ func NewEncoder(w io.WriteSeeker, sampleRate, bitDepth, numChans, audioFormat in
 	}
 }
 
-// AddLE serializes and adds the passed value using little endian
-func (e *Encoder) AddLE(src interface{}) error {
+// AddLE serializes and adds the passed value using little endian.
+func (e *Encoder) AddLE(src any) error {
 	e.WrittenBytes += binary.Size(src)
 	return binary.Write(e.w, binary.LittleEndian, src)
 }
 
-// AddBE serializes and adds the passed value using big endian
-func (e *Encoder) AddBE(src interface{}) error {
+// AddBE serializes and adds the passed value using big endian.
+func (e *Encoder) AddBE(src any) error {
 	e.WrittenBytes += binary.Size(src)
 	return binary.Write(e.w, binary.BigEndian, src)
 }
 
 func (e *Encoder) addBuffer(buf *audio.Float32Buffer) error {
 	if buf == nil {
-		return fmt.Errorf("can't add a nil buffer")
+		return errors.New("can't add a nil buffer")
 	}
 
 	frameCount := buf.NumFrames()
 	// performance tweak: setup a buffer so we don't do too many writes
 	var err error
-	for i := 0; i < frameCount; i++ {
+
+	for i := range frameCount {
 		for j := 0; j < buf.Format.NumChannels; j++ {
 			v := buf.Data[i*buf.Format.NumChannels+j]
+
 			if e.WavAudioFormat == wavFormatIEEEFloat {
 				if e.BitDepth != 32 {
 					return fmt.Errorf("unsupported float bit depth %d", e.BitDepth)
 				}
-				if err = binary.Write(e.buf, binary.LittleEndian, clampFloat32(v, -1, 1)); err != nil {
+				err = binary.Write(e.buf, binary.LittleEndian, clampFloat32(v, -1, 1))
+				if err != nil {
 					return err
 				}
+
 				continue
 			}
+
 			if e.WavAudioFormat != wavFormatPCM {
 				return fmt.Errorf("unsupported wav format %d", e.WavAudioFormat)
 			}
+
 			switch e.BitDepth {
 			case 8:
-				if err = binary.Write(e.buf, binary.LittleEndian, float32ToPCMUint8(v)); err != nil {
+				err = binary.Write(e.buf, binary.LittleEndian, float32ToPCMUint8(v))
+				if err != nil {
 					return err
 				}
 			case 16:
-				if err = binary.Write(e.buf, binary.LittleEndian, int16(float32ToPCMInt32(v, 16))); err != nil {
+				err = binary.Write(e.buf, binary.LittleEndian, int16(float32ToPCMInt32(v, 16)))
+				if err != nil {
 					return err
 				}
 			case 24:
-				if err = binary.Write(e.buf, binary.LittleEndian, audio.Int32toInt24LEBytes(float32ToPCMInt32(v, 24))); err != nil {
+				err = binary.Write(e.buf, binary.LittleEndian, audio.Int32toInt24LEBytes(float32ToPCMInt32(v, 24)))
+				if err != nil {
 					return err
 				}
 			case 32:
-				if err = binary.Write(e.buf, binary.LittleEndian, float32ToPCMInt32(v, 32)); err != nil {
+				err = binary.Write(e.buf, binary.LittleEndian, float32ToPCMInt32(v, 32))
+				if err != nil {
 					return err
 				}
 			default:
 				return fmt.Errorf("can't add frames of bit size %d", e.BitDepth)
 			}
 		}
+
 		e.frames++
 	}
+
 	if n, err := e.w.Write(e.buf.Bytes()); err != nil {
 		e.WrittenBytes += n
 		return err
 	}
+
 	e.WrittenBytes += e.buf.Len()
 	e.buf.Reset()
 
@@ -124,12 +137,14 @@ func (e *Encoder) writeHeader() error {
 	if e.wroteHeader {
 		return errors.New("already wrote header")
 	}
+
 	e.wroteHeader = true
 	if e == nil {
-		return fmt.Errorf("can't write a nil encoder")
+		return errors.New("can't write a nil encoder")
 	}
+
 	if e.w == nil {
-		return fmt.Errorf("can't write to a nil writer")
+		return errors.New("can't write to a nil writer")
 	}
 
 	if e.WrittenBytes > 0 {
@@ -137,48 +152,60 @@ func (e *Encoder) writeHeader() error {
 	}
 
 	// riff ID
-	if err := e.AddLE(riff.RiffID); err != nil {
+	err := e.AddLE(riff.RiffID)
+	if err != nil {
 		return err
 	}
 	// file size uint32, to update later on.
-	if err := e.AddLE(uint32(4294967295)); err != nil {
+	err := e.AddLE(uint32(4294967295))
+	if err != nil {
 		return err
 	}
 	// wave headers
-	if err := e.AddLE(riff.WavFormatID); err != nil {
+	err := e.AddLE(riff.WavFormatID)
+	if err != nil {
 		return err
 	}
 	// form
-	if err := e.AddLE(riff.FmtID); err != nil {
+	err := e.AddLE(riff.FmtID)
+	if err != nil {
 		return err
 	}
 	// chunk size
-	if err := e.AddLE(uint32(16)); err != nil {
+	err := e.AddLE(uint32(16))
+	if err != nil {
 		return err
 	}
 	// wave format
-	if err := e.AddLE(uint16(e.WavAudioFormat)); err != nil {
+	err := e.AddLE(uint16(e.WavAudioFormat))
+	if err != nil {
 		return err
 	}
 	// num channels
-	if err := e.AddLE(uint16(e.NumChans)); err != nil {
+	err := e.AddLE(uint16(e.NumChans))
+	if err != nil {
 		return fmt.Errorf("error encoding the number of channels - %w", err)
 	}
 	// samplerate
-	if err := e.AddLE(uint32(e.SampleRate)); err != nil {
+	err := e.AddLE(uint32(e.SampleRate))
+	if err != nil {
 		return fmt.Errorf("error encoding the sample rate - %w", err)
 	}
+
 	blockAlign := e.NumChans * e.BitDepth / 8
 	// avg bytes per sec
-	if err := e.AddLE(uint32(e.SampleRate * blockAlign)); err != nil {
+	err := e.AddLE(uint32(e.SampleRate * blockAlign))
+	if err != nil {
 		return fmt.Errorf("error encoding the avg bytes per sec - %w", err)
 	}
 	// block align
-	if err := e.AddLE(uint16(blockAlign)); err != nil {
+	err := e.AddLE(uint16(blockAlign))
+	if err != nil {
 		return err
 	}
 	// bits per sample
-	if err := e.AddLE(uint16(e.BitDepth)); err != nil {
+	err := e.AddLE(uint16(e.BitDepth))
+	if err != nil {
 		return fmt.Errorf("error encoding bits per sample - %w", err)
 	}
 
@@ -189,21 +216,25 @@ func (e *Encoder) writeHeader() error {
 // Don't forget to Close() the encoder or the file won't be valid.
 func (e *Encoder) Write(buf *audio.Float32Buffer) error {
 	if !e.wroteHeader {
-		if err := e.writeHeader(); err != nil {
+		err := e.writeHeader()
+		if err != nil {
 			return err
 		}
 	}
 
 	if !e.pcmChunkStarted {
 		// sound header
-		if err := e.AddLE(riff.DataFormatID); err != nil {
+		err := e.AddLE(riff.DataFormatID)
+		if err != nil {
 			return fmt.Errorf("error encoding sound header %w", err)
 		}
+
 		e.pcmChunkStarted = true
 
 		// write a temporary chunksize
 		e.pcmChunkSizePos = e.WrittenBytes
-		if err := e.AddLE(uint32(4294967295)); err != nil {
+		err := e.AddLE(uint32(4294967295))
+		if err != nil {
 			return fmt.Errorf("%w when writing wav data chunk size header", err)
 		}
 	}
@@ -212,33 +243,40 @@ func (e *Encoder) Write(buf *audio.Float32Buffer) error {
 }
 
 // WriteFrame writes a single frame of data to the underlying writer.
-func (e *Encoder) WriteFrame(value interface{}) error {
+func (e *Encoder) WriteFrame(value any) error {
 	if !e.wroteHeader {
 		e.writeHeader()
 	}
+
 	if !e.pcmChunkStarted {
 		// sound header
-		if err := e.AddLE(riff.DataFormatID); err != nil {
+		err := e.AddLE(riff.DataFormatID)
+		if err != nil {
 			return fmt.Errorf("error encoding sound header %w", err)
 		}
+
 		e.pcmChunkStarted = true
 
 		// write a temporary chunksize
 		e.pcmChunkSizePos = e.WrittenBytes
-		if err := e.AddLE(uint32(4294967295)); err != nil {
+		err := e.AddLE(uint32(4294967295))
+		if err != nil {
 			return fmt.Errorf("%w when writing wav data chunk size header", err)
 		}
 	}
 
 	e.frames++
+
 	switch v := value.(type) {
 	case float32:
 		if e.WavAudioFormat == wavFormatIEEEFloat {
 			return e.AddLE(clampFloat32(v, -1, 1))
 		}
+
 		if e.WavAudioFormat != wavFormatPCM {
 			return fmt.Errorf("unsupported wav format %d", e.WavAudioFormat)
 		}
+
 		switch e.BitDepth {
 		case 8:
 			return e.AddLE(float32ToPCMUint8(v))
@@ -260,12 +298,15 @@ func (e *Encoder) WriteFrame(value interface{}) error {
 
 func (e *Encoder) writeMetadata() error {
 	chunkData := encodeInfoChunk(e)
-	if err := e.AddBE(CIDList); err != nil {
+	err := e.AddBE(CIDList)
+	if err != nil {
 		return fmt.Errorf("failed to write the LIST chunk ID: %w", err)
 	}
-	if err := e.AddLE(uint32(len(chunkData))); err != nil {
+	err := e.AddLE(uint32(len(chunkData)))
+	if err != nil {
 		return fmt.Errorf("failed to write the LIST chunk size: %w", err)
 	}
+
 	return e.AddBE(chunkData)
 }
 
@@ -279,7 +320,8 @@ func (e *Encoder) Close() error {
 	// inject metadata at the end to not trip implementation not supporting
 	// metadata chunks
 	if e.Metadata != nil {
-		if err := e.writeMetadata(); err != nil {
+		err := e.writeMetadata()
+		if err != nil {
 			return fmt.Errorf("failed to write metadata - %w", err)
 		}
 	}
@@ -288,7 +330,8 @@ func (e *Encoder) Close() error {
 	if _, err := e.w.Seek(4, 0); err != nil {
 		return err
 	}
-	if err := e.AddLE(uint32(e.WrittenBytes) - 8); err != nil {
+	err := e.AddLE(uint32(e.WrittenBytes) - 8)
+	if err != nil {
 		return fmt.Errorf("%w when writing the total written bytes", err)
 	}
 
@@ -297,8 +340,10 @@ func (e *Encoder) Close() error {
 		if _, err := e.w.Seek(int64(e.pcmChunkSizePos), 0); err != nil {
 			return err
 		}
+
 		chunksize := uint32((int(e.BitDepth) / 8) * int(e.NumChans) * e.frames)
-		if err := e.AddLE(uint32(chunksize)); err != nil {
+		err := e.AddLE(uint32(chunksize))
+		if err != nil {
 			return fmt.Errorf("%w when writing wav data chunk size header", err)
 		}
 	}
@@ -307,9 +352,11 @@ func (e *Encoder) Close() error {
 	if _, err := e.w.Seek(0, 2); err != nil {
 		return err
 	}
+
 	switch e.w.(type) {
 	case *os.File:
 		return e.w.(*os.File).Sync()
 	}
+
 	return nil
 }

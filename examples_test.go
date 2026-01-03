@@ -12,10 +12,12 @@ func ExampleDecoder_Duration() {
 		log.Fatal(err)
 	}
 	defer f.Close()
+
 	dur, err := NewDecoder(f).Duration()
 	if err != nil {
 		log.Fatal(err)
 	}
+
 	fmt.Printf("%s duration: %s\n", f.Name(), dur)
 	// Output: fixtures/kick.wav duration: 204.172335ms
 }
@@ -26,6 +28,7 @@ func ExampleDecoder_IsValidFile() {
 		log.Fatal(err)
 	}
 	defer f.Close()
+
 	fmt.Printf("is this file valid: %t", NewDecoder(f).IsValidFile())
 	// Output: is this file valid: true
 }
@@ -39,10 +42,12 @@ func ExampleEncoder_Write() {
 	// Decode the original audio file
 	// and collect audio content and information.
 	d := NewDecoder(f)
+
 	buf, err := d.FullPCMBuffer()
 	if err != nil {
 		panic(err)
 	}
+
 	f.Close()
 	fmt.Println("Old file ->", d)
 
@@ -66,6 +71,7 @@ func ExampleEncoder_Write() {
 	if err = e.Close(); err != nil {
 		panic(err)
 	}
+
 	out.Close()
 
 	// reopen to confirm things worked well
@@ -73,6 +79,7 @@ func ExampleEncoder_Write() {
 	if err != nil {
 		panic(err)
 	}
+
 	d2 := NewDecoder(out)
 	d2.ReadInfo()
 	fmt.Println("New file ->", d2)
@@ -90,11 +97,14 @@ func ExampleDecoder_ReadMetadata() {
 		log.Fatal(err)
 	}
 	defer f.Close()
+
 	d := NewDecoder(f)
 	d.ReadMetadata()
+
 	if d.Err() != nil {
 		log.Fatal(err)
 	}
+
 	fmt.Printf("%#v\n", d.Metadata)
 	// Output:
 	// &wav.Metadata{SamplerInfo:(*wav.SamplerInfo)(nil), Artist:"artist", Comments:"my comment", Copyright:"", CreationDate:"2017", Engineer:"", Technician:"", Genre:"genre", Keywords:"", Medium:"", Title:"track title", Product:"album title", Subject:"", Software:"", Source:"", Location:"", TrackNbr:"42", CuePoints:[]*wav.CuePoint(nil)}
