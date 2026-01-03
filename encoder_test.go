@@ -26,138 +26,138 @@ func TestEncoderRoundTrip(t *testing.T) {
 		{"fixtures/32bit.wav", "testOutput/32bit.wav", nil, "1 ch, 44100 Hz, 32-bit little-endian signed integer"},
 	}
 
-	for _, tc := range testCases {
-		t.Run(path.Base(tc.in), func(t *testing.T) {
-			in, err := os.Open(tc.in)
+	for _, testCase := range testCases {
+		t.Run(path.Base(testCase.in), func(t *testing.T) {
+			in, err := os.Open(testCase.in)
 			if err != nil {
-				t.Fatalf("couldn't open %s %v", tc.in, err)
+				t.Fatalf("couldn't open %s %v", testCase.in, err)
 			}
 
-			d := NewDecoder(in)
+			decdr := NewDecoder(in)
 
-			buf, err := d.FullPCMBuffer()
+			buf, err := decdr.FullPCMBuffer()
 			if err != nil {
-				t.Fatalf("couldn't read buffer %s %v", tc.in, err)
+				t.Fatalf("couldn't read buffer %s %v", testCase.in, err)
 			}
 
 			in.Close()
 
-			out, err := os.Create(tc.out)
+			out, err := os.Create(testCase.out)
 			if err != nil {
-				t.Fatalf("couldn't create %s %v", tc.out, err)
+				t.Fatalf("couldn't create %s %v", testCase.out, err)
 			}
 
-			e := NewEncoder(out,
+			encoder := NewEncoder(out,
 				buf.Format.SampleRate,
-				int(d.BitDepth),
+				int(decdr.BitDepth),
 				buf.Format.NumChannels,
-				int(d.WavAudioFormat))
-			if err = e.Write(buf); err != nil {
+				int(decdr.WavAudioFormat))
+			if err = encoder.Write(buf); err != nil {
 				t.Fatal(err)
 			}
 
-			if tc.metadata != nil {
-				e.Metadata = tc.metadata
+			if testCase.metadata != nil {
+				encoder.Metadata = testCase.metadata
 			}
 
-			if err = e.Close(); err != nil {
+			if err = encoder.Close(); err != nil {
 				t.Fatal(err)
 			}
 
 			out.Close()
 
-			nf, err := os.Open(tc.out)
+			newFile, err := os.Open(testCase.out)
 			if err != nil {
 				t.Fatal(err)
 			}
 
-			nd := NewDecoder(nf)
+			decoder := NewDecoder(newFile)
 
-			nBuf, err := nd.FullPCMBuffer()
+			nBuf, err := decoder.FullPCMBuffer()
 			if err != nil {
-				t.Fatalf("couldn't extract the PCM from %s - %v", nf.Name(), err)
+				t.Fatalf("couldn't extract the PCM from %s - %v", newFile.Name(), err)
 			}
 
-			if tc.metadata != nil {
-				nd.ReadMetadata()
+			if testCase.metadata != nil {
+				decoder.ReadMetadata()
 
-				if nd.Metadata == nil {
+				if decoder.Metadata == nil {
 					t.Errorf("expected some metadata, got a nil value")
 				}
 
-				if tc.metadata.Artist != nd.Metadata.Artist {
-					t.Errorf("expected Artist to be %s, but was %s", tc.metadata.Artist, nd.Metadata.Artist)
+				if testCase.metadata.Artist != decoder.Metadata.Artist {
+					t.Errorf("expected Artist to be %s, but was %s", testCase.metadata.Artist, decoder.Metadata.Artist)
 				}
 
-				if tc.metadata.Comments != nd.Metadata.Comments {
-					t.Errorf("expected Comments to be %s, but was %s", tc.metadata.Comments, nd.Metadata.Comments)
+				if testCase.metadata.Comments != decoder.Metadata.Comments {
+					t.Errorf("expected Comments to be %s, but was %s", testCase.metadata.Comments, decoder.Metadata.Comments)
 				}
 
-				if tc.metadata.Copyright != nd.Metadata.Copyright {
-					t.Errorf("expected Copyright to be %s, but was %s", tc.metadata.Copyright, nd.Metadata.Copyright)
+				if testCase.metadata.Copyright != decoder.Metadata.Copyright {
+					t.Errorf("expected Copyright to be %s, but was %s", testCase.metadata.Copyright, decoder.Metadata.Copyright)
 				}
 
-				if tc.metadata.CreationDate != nd.Metadata.CreationDate {
-					t.Errorf("expected CreationDate to be %s, but was %s", tc.metadata.CreationDate, nd.Metadata.CreationDate)
+				if testCase.metadata.CreationDate != decoder.Metadata.CreationDate {
+					t.Errorf("expected CreationDate to be %s, but was %s", testCase.metadata.CreationDate, decoder.Metadata.CreationDate)
 				}
 
-				if tc.metadata.Engineer != nd.Metadata.Engineer {
-					t.Errorf("expected Engineer to be %s, but was %s", tc.metadata.Engineer, nd.Metadata.Engineer)
+				if testCase.metadata.Engineer != decoder.Metadata.Engineer {
+					t.Errorf("expected Engineer to be %s, but was %s", testCase.metadata.Engineer, decoder.Metadata.Engineer)
 				}
 
-				if tc.metadata.Technician != nd.Metadata.Technician {
-					t.Errorf("expected Technician to be %s, but was %s", tc.metadata.Technician, nd.Metadata.Technician)
+				if testCase.metadata.Technician != decoder.Metadata.Technician {
+					t.Errorf("expected Technician to be %s, but was %s", testCase.metadata.Technician, decoder.Metadata.Technician)
 				}
 
-				if tc.metadata.Genre != nd.Metadata.Genre {
-					t.Errorf("expected Genre to be %s, but was %s", tc.metadata.Genre, nd.Metadata.Genre)
+				if testCase.metadata.Genre != decoder.Metadata.Genre {
+					t.Errorf("expected Genre to be %s, but was %s", testCase.metadata.Genre, decoder.Metadata.Genre)
 				}
 
-				if tc.metadata.Keywords != nd.Metadata.Keywords {
-					t.Errorf("expected Keywords to be %s, but was %s", tc.metadata.Keywords, nd.Metadata.Keywords)
+				if testCase.metadata.Keywords != decoder.Metadata.Keywords {
+					t.Errorf("expected Keywords to be %s, but was %s", testCase.metadata.Keywords, decoder.Metadata.Keywords)
 				}
 
-				if tc.metadata.Medium != nd.Metadata.Medium {
-					t.Errorf("expected Medium to be %s, but was %s", tc.metadata.Medium, nd.Metadata.Medium)
+				if testCase.metadata.Medium != decoder.Metadata.Medium {
+					t.Errorf("expected Medium to be %s, but was %s", testCase.metadata.Medium, decoder.Metadata.Medium)
 				}
 
-				if tc.metadata.Title != nd.Metadata.Title {
-					t.Errorf("expected Title to be %s, but was %s", tc.metadata.Title, nd.Metadata.Title)
+				if testCase.metadata.Title != decoder.Metadata.Title {
+					t.Errorf("expected Title to be %s, but was %s", testCase.metadata.Title, decoder.Metadata.Title)
 				}
 
-				if tc.metadata.Product != nd.Metadata.Product {
-					t.Errorf("expected Product to be %s, but was %s", tc.metadata.Product, nd.Metadata.Product)
+				if testCase.metadata.Product != decoder.Metadata.Product {
+					t.Errorf("expected Product to be %s, but was %s", testCase.metadata.Product, decoder.Metadata.Product)
 				}
 
-				if tc.metadata.Subject != nd.Metadata.Subject {
-					t.Errorf("expected Subject to be %s, but was %s", tc.metadata.Subject, nd.Metadata.Subject)
+				if testCase.metadata.Subject != decoder.Metadata.Subject {
+					t.Errorf("expected Subject to be %s, but was %s", testCase.metadata.Subject, decoder.Metadata.Subject)
 				}
 
-				if tc.metadata.Software != nd.Metadata.Software {
-					t.Errorf("expected Software to be %s, but was %s", tc.metadata.Software, nd.Metadata.Software)
+				if testCase.metadata.Software != decoder.Metadata.Software {
+					t.Errorf("expected Software to be %s, but was %s", testCase.metadata.Software, decoder.Metadata.Software)
 				}
 
-				if tc.metadata.Source != nd.Metadata.Source {
-					t.Errorf("expected Source to be %s, but was %s", tc.metadata.Source, nd.Metadata.Source)
+				if testCase.metadata.Source != decoder.Metadata.Source {
+					t.Errorf("expected Source to be %s, but was %s", testCase.metadata.Source, decoder.Metadata.Source)
 				}
 
-				if tc.metadata.Location != nd.Metadata.Location {
-					t.Errorf("expected Location to be %s, but was %s", tc.metadata.Location, nd.Metadata.Location)
+				if testCase.metadata.Location != decoder.Metadata.Location {
+					t.Errorf("expected Location to be %s, but was %s", testCase.metadata.Location, decoder.Metadata.Location)
 				}
 
-				if tc.metadata.TrackNbr != nd.Metadata.TrackNbr {
-					t.Errorf("expected TrackNbr to be %s, but was %s", tc.metadata.TrackNbr, nd.Metadata.TrackNbr)
+				if testCase.metadata.TrackNbr != decoder.Metadata.TrackNbr {
+					t.Errorf("expected TrackNbr to be %s, but was %s", testCase.metadata.TrackNbr, decoder.Metadata.TrackNbr)
 				}
 			}
 
-			nf.Close()
+			newFile.Close()
 
 			if err != nil {
 				t.Fatal(err)
 			}
 
 			defer func() {
-				err := os.Remove(nf.Name())
+				err := os.Remove(newFile.Name())
 				if err != nil {
 					panic(err)
 				}

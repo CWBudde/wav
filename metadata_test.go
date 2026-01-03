@@ -49,45 +49,45 @@ func TestDecoder_ReadMetadata(t *testing.T) {
 		}},
 	}
 
-	for _, tc := range testCases {
-		t.Run(path.Base(tc.in), func(t *testing.T) {
-			f, err := os.Open(tc.in)
+	for _, testCase := range testCases {
+		t.Run(path.Base(testCase.in), func(t *testing.T) {
+			file, err := os.Open(testCase.in)
 			if err != nil {
 				t.Fatal(err)
 			}
 
-			d := NewDecoder(f)
-			d.ReadMetadata()
+			decoder := NewDecoder(file)
+			decoder.ReadMetadata()
 
-			if err = d.Err(); err != nil {
+			if err = decoder.Err(); err != nil {
 				t.Fatal(err)
 			}
 
-			if tc.metadata != nil {
-				if tc.metadata.SamplerInfo != nil {
-					if !reflect.DeepEqual(tc.metadata.SamplerInfo, d.Metadata.SamplerInfo) {
-						t.Fatalf("Expected sampler info\n%#v to equal\n%#v\n", d.Metadata.SamplerInfo, tc.metadata.SamplerInfo)
+			if testCase.metadata != nil {
+				if testCase.metadata.SamplerInfo != nil {
+					if !reflect.DeepEqual(testCase.metadata.SamplerInfo, decoder.Metadata.SamplerInfo) {
+						t.Fatalf("Expected sampler info\n%#v to equal\n%#v\n", decoder.Metadata.SamplerInfo, testCase.metadata.SamplerInfo)
 					}
 				}
 
-				if tc.metadata.CuePoints != nil {
-					if !reflect.DeepEqual(tc.metadata.CuePoints, d.Metadata.CuePoints) {
-						for i, c := range d.Metadata.CuePoints {
-							if !reflect.DeepEqual(c, tc.metadata.CuePoints[i]) {
-								t.Errorf("[%d] expected %#v got %#v", i, tc.metadata.CuePoints[i], c)
+				if testCase.metadata.CuePoints != nil {
+					if !reflect.DeepEqual(testCase.metadata.CuePoints, decoder.Metadata.CuePoints) {
+						for i, c := range decoder.Metadata.CuePoints {
+							if !reflect.DeepEqual(c, testCase.metadata.CuePoints[i]) {
+								t.Errorf("[%d] expected %#v got %#v", i, testCase.metadata.CuePoints[i], c)
 							}
 						}
 
-						t.Errorf("Expected cue points\n%#v to equal\n%#v\n", d.Metadata.CuePoints, tc.metadata.CuePoints)
+						t.Errorf("Expected cue points\n%#v to equal\n%#v\n", decoder.Metadata.CuePoints, testCase.metadata.CuePoints)
 					}
 				}
 
-				if !reflect.DeepEqual(tc.metadata, d.Metadata) {
-					t.Fatalf("Expected\n%#v\n to equal\n%#v\n", d.Metadata, tc.metadata)
+				if !reflect.DeepEqual(testCase.metadata, decoder.Metadata) {
+					t.Fatalf("Expected\n%#v\n to equal\n%#v\n", decoder.Metadata, testCase.metadata)
 				}
 			}
 
-			f.Close()
+			file.Close()
 		})
 	}
 }

@@ -52,6 +52,7 @@ func main() {
 				strings.ToLower(filepath.Ext(fi.Name())),
 				".wav") {
 				filePath = filepath.Join(*flagDirToTag, fi.Name())
+
 				err := tagFile(filePath)
 				if err != nil {
 					fmt.Printf("Something went wrong tagging %s - %v\n", filePath, err)
@@ -67,9 +68,9 @@ func tagFile(path string) error {
 		return fmt.Errorf("failed to open %s - %w", path, err)
 	}
 
-	d := wav.NewDecoder(in)
+	decoder := wav.NewDecoder(in)
 
-	buf, err := d.FullPCMBuffer()
+	buf, err := decoder.FullPCMBuffer()
 	if err != nil {
 		return fmt.Errorf("couldn't read buffer %s %w", path, err)
 	}
@@ -86,18 +87,18 @@ func tagFile(path string) error {
 	}
 	defer out.Close()
 
-	e := wav.NewEncoder(out,
+	encoder := wav.NewEncoder(out,
 		buf.Format.SampleRate,
-		int(d.BitDepth),
+		int(decoder.BitDepth),
 		buf.Format.NumChannels,
-		int(d.WavAudioFormat))
-	if err := e.Write(buf); err != nil {
+		int(decoder.WavAudioFormat))
+	if err := encoder.Write(buf); err != nil {
 		return fmt.Errorf("failed to write audio buffer - %w", err)
 	}
 
-	e.Metadata = &wav.Metadata{}
+	encoder.Metadata = &wav.Metadata{}
 	if *flagArtist != "" {
-		e.Metadata.Artist = *flagArtist
+		encoder.Metadata.Artist = *flagArtist
 	}
 
 	if *flagTitleRegexp != "" {
@@ -107,29 +108,29 @@ func tagFile(path string) error {
 
 		matches := re.FindStringSubmatch(filename)
 		if len(matches) > 0 {
-			e.Metadata.Title = matches[1]
+			encoder.Metadata.Title = matches[1]
 		} else {
 			fmt.Printf("No matches for title regexp %s in %s\n", *flagTitleRegexp, filename)
 		}
 	}
 
 	if *flagTitle != "" {
-		e.Metadata.Title = *flagTitle
+		encoder.Metadata.Title = *flagTitle
 	}
 
 	if *flagComments != "" {
-		e.Metadata.Comments = *flagComments
+		encoder.Metadata.Comments = *flagComments
 	}
 
 	if *flagCopyright != "" {
-		e.Metadata.Copyright = *flagCopyright
+		encoder.Metadata.Copyright = *flagCopyright
 	}
 
 	if *flagGenre != "" {
-		e.Metadata.Genre = *flagGenre
+		encoder.Metadata.Genre = *flagGenre
 	}
 
-	if err := e.Close(); err != nil {
+	if err := encoder.Close(); err != nil {
 		return fmt.Errorf("failed to close %s - %w", outPath, err)
 	}
 

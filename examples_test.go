@@ -7,49 +7,49 @@ import (
 )
 
 func ExampleDecoder_Duration() {
-	f, err := os.Open("fixtures/kick.wav")
+	file, err := os.Open("fixtures/kick.wav")
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer f.Close()
+	defer file.Close()
 
-	dur, err := NewDecoder(f).Duration()
+	dur, err := NewDecoder(file).Duration()
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	fmt.Printf("%s duration: %s\n", f.Name(), dur)
+	fmt.Printf("%s duration: %s\n", file.Name(), dur)
 	// Output: fixtures/kick.wav duration: 204.172335ms
 }
 
 func ExampleDecoder_IsValidFile() {
-	f, err := os.Open("fixtures/kick.wav")
+	file, err := os.Open("fixtures/kick.wav")
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer f.Close()
+	defer file.Close()
 
-	fmt.Printf("is this file valid: %t", NewDecoder(f).IsValidFile())
+	fmt.Printf("is this file valid: %t", NewDecoder(file).IsValidFile())
 	// Output: is this file valid: true
 }
 
 func ExampleEncoder_Write() {
-	f, err := os.Open("fixtures/kick.wav")
+	file, err := os.Open("fixtures/kick.wav")
 	if err != nil {
 		panic(fmt.Sprintf("couldn't open audio file - %v", err))
 	}
 
 	// Decode the original audio file
 	// and collect audio content and information.
-	d := NewDecoder(f)
+	decoder := NewDecoder(file)
 
-	buf, err := d.FullPCMBuffer()
+	buf, err := decoder.FullPCMBuffer()
 	if err != nil {
 		panic(err)
 	}
 
-	f.Close()
-	fmt.Println("Old file ->", d)
+	file.Close()
+	fmt.Println("Old file ->", decoder)
 
 	// Destination file
 	out, err := os.Create("testOutput/kick.wav")
@@ -58,17 +58,17 @@ func ExampleEncoder_Write() {
 	}
 
 	// setup the encoder and write all the frames
-	e := NewEncoder(out,
+	encoder := NewEncoder(out,
 		buf.Format.SampleRate,
-		int(d.BitDepth),
+		int(decoder.BitDepth),
 		buf.Format.NumChannels,
-		int(d.WavAudioFormat))
-	if err = e.Write(buf); err != nil {
+		int(decoder.WavAudioFormat))
+	if err = encoder.Write(buf); err != nil {
 		panic(err)
 	}
 	// close the encoder to make sure the headers are properly
 	// set and the data is flushed.
-	if err = e.Close(); err != nil {
+	if err = encoder.Close(); err != nil {
 		panic(err)
 	}
 
@@ -92,20 +92,20 @@ func ExampleEncoder_Write() {
 }
 
 func ExampleDecoder_ReadMetadata() {
-	f, err := os.Open("fixtures/listinfo.wav")
+	file, err := os.Open("fixtures/listinfo.wav")
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer f.Close()
+	defer file.Close()
 
-	d := NewDecoder(f)
-	d.ReadMetadata()
+	decoder := NewDecoder(file)
+	decoder.ReadMetadata()
 
-	if d.Err() != nil {
+	if decoder.Err() != nil {
 		log.Fatal(err)
 	}
 
-	fmt.Printf("%#v\n", d.Metadata)
+	fmt.Printf("%#v\n", decoder.Metadata)
 	// Output:
 	// &wav.Metadata{SamplerInfo:(*wav.SamplerInfo)(nil), Artist:"artist", Comments:"my comment", Copyright:"", CreationDate:"2017", Engineer:"", Technician:"", Genre:"genre", Keywords:"", Medium:"", Title:"track title", Product:"album title", Subject:"", Software:"", Source:"", Location:"", TrackNbr:"42", CuePoints:[]*wav.CuePoint(nil)}
 }

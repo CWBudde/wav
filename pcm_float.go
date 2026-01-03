@@ -64,27 +64,15 @@ func float32ToPCMInt32(value float32, bitDepth int) int32 {
 
 	switch bitDepth {
 	case 16:
-		sample := min(int64(math.Round(float64(value)*scalePCMInt16)), maxPCMInt16)
-
-		if sample < -scalePCMInt16 {
-			sample = -scalePCMInt16
-		}
+		sample := max(min(int64(math.Round(float64(value)*scalePCMInt16)), maxPCMInt16), -scalePCMInt16)
 
 		return int32(sample)
 	case 24:
-		sample := min(int64(math.Round(float64(value)*scalePCMInt24)), maxPCMInt24)
-
-		if sample < -scalePCMInt24 {
-			sample = -scalePCMInt24
-		}
+		sample := max(min(int64(math.Round(float64(value)*scalePCMInt24)), maxPCMInt24), -scalePCMInt24)
 
 		return int32(sample)
 	case 32:
-		sample := min(int64(math.Round(float64(value)*scalePCMInt32)), maxPCMInt32)
-
-		if sample < -scalePCMInt32 {
-			sample = -scalePCMInt32
-		}
+		sample := max(min(int64(math.Round(float64(value)*scalePCMInt32)), maxPCMInt32), -scalePCMInt32)
 
 		return int32(sample)
 	default:

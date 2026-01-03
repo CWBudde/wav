@@ -22,6 +22,11 @@ var (
 	CIDInfo = []byte{'I', 'N', 'F', 'O'}
 	// CIDCue is the chunk ID for the cue chunk.
 	CIDCue = [4]byte{'c', 'u', 'e', 0x20}
+
+	// ErrPCMDataNotFound is returned when PCM data chunk is not found.
+	ErrPCMDataNotFound = errors.New("PCM data not found")
+	// ErrDurationNilPointer is returned when calculating duration on a nil decoder.
+	ErrDurationNilPointer = errors.New("can't calculate the duration of a nil pointer")
 )
 
 // Decoder handles the decoding of wav files.
@@ -56,7 +61,12 @@ func NewDecoder(r io.ReadSeeker) *Decoder {
 
 // Seek provides access to the cursor position in the PCM data.
 func (d *Decoder) Seek(offset int64, whence int) (int64, error) {
-	return d.r.Seek(offset, whence)
+	pos, err := d.r.Seek(offset, whence)
+	if err != nil {
+		return 0, fmt.Errorf("failed to seek: %w", err)
+	}
+
+	return pos, nil
 }
 
 // Rewind allows the decoder to be rewound to the beginning of the PCM data.
@@ -207,7 +217,7 @@ func (d *Decoder) ReadMetadata() {
 // If the PCM chunk was already read, no data will be found (you need to rewind).
 func (d *Decoder) FwdToPCM() error {
 	if d == nil {
-		return errors.New("PCM data not found")
+		return ErrPCMDataNotFound
 	}
 
 	d.err = d.readHeaders()
@@ -237,7 +247,7 @@ func (d *Decoder) FwdToPCM() error {
 	}
 
 	if chunk == nil {
-		return errors.New("PCM data not found")
+		return ErrPCMDataNotFound
 	}
 
 	d.pcmDataAccessed = true
@@ -266,7 +276,7 @@ func (d *Decoder) FullPCMBuffer() (*audio.Float32Buffer, error) {
 	}
 
 	if d.PCMChunk == nil {
-		return nil, errors.New("PCM chunk not found")
+		return nil, ErrPCMChunkNotFound
 	}
 
 	format := &audio.Format{
@@ -345,26 +355,26 @@ func (d *Decoder) PCMBuffer(buf *audio.Float32Buffer) (n int, err error) {
 	size := len(buf.Data) * bPerSample
 	tmpBuf := make([]byte, size)
 
-	var m int
+	var tmp int
 
-	m, err = d.PCMChunk.R.Read(tmpBuf)
+	tmp, err = d.PCMChunk.R.Read(tmpBuf)
 	if err != nil {
 		if errors.Is(err, io.EOF) {
-			return m, nil
+			return tmp, nil
 		}
 
-		return m, err
+		return tmp, fmt.Errorf("failed to read PCM data: %w", err)
 	}
 
-	if m == 0 {
-		return m, nil
+	if tmp == 0 {
+		return tmp, nil
 	}
 
-	bufR := bytes.NewReader(tmpBuf[:m])
+	bufR := bytes.NewReader(tmpBuf[:tmp])
 	sampleBuf := make([]byte, bPerSample, bPerSample)
 
 	var misaligned bool
-	if m%bPerSample > 0 {
+	if tmp%bPerSample > 0 {
 		misaligned = true
 	}
 
@@ -444,10 +454,15 @@ func (d *Decoder) NextChunk() (*riff.Chunk, error) {
 // Duration returns the time duration for the current audio container.
 func (d *Decoder) Duration() (time.Duration, error) {
 	if d == nil || d.parser == nil {
-		return 0, errors.New("can't calculate the duration of a nil pointer")
+		return 0, ErrDurationNilPointer
 	}
 
-	return d.parser.Duration()
+	dur, err := d.parser.Duration()
+	if err != nil {
+		return 0, fmt.Errorf("failed to get duration: %w", err)
+	}
+
+	return dur, nil
 }
 
 // String implements the Stringer interface.
@@ -463,7 +478,7 @@ func (d *Decoder) readHeaders() error {
 
 	id, size, err := d.parser.IDnSize()
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to read chunk ID and size: %w", err)
 	}
 
 	d.parser.ID = id
@@ -473,7 +488,7 @@ func (d *Decoder) readHeaders() error {
 
 	d.parser.Size = size
 	if err := binary.Read(d.r, binary.BigEndian, &d.parser.Format); err != nil {
-		return err
+		return fmt.Errorf("failed to read format: %w", err)
 	}
 
 	var (
@@ -547,7 +562,7 @@ func sampleDecodeFunc(bitsPerSample int) (func(io.Reader, []byte) (int, error), 
 		return func(r io.Reader, buf []byte) (int, error) {
 			_, err := r.Read(buf[:3])
 			if err != nil {
-				return 0, err
+				return 0, fmt.Errorf("failed to read 24-bit sample: %w", err)
 			}
 
 			return int(audio.Int24LETo32(buf[:3])), nil
@@ -571,7 +586,7 @@ func sampleDecodeFloat32Func(bitsPerSample int, wavFormat uint16) (func(io.Reade
 			return func(r io.Reader, buf []byte) (float32, error) {
 				_, err := r.Read(buf[:4])
 				if err != nil {
-					return 0, err
+					return 0, fmt.Errorf("failed to read 32-bit float sample: %w", err)
 				}
 
 				value := math.Float32frombits(binary.LittleEndian.Uint32(buf[:4]))
@@ -582,7 +597,7 @@ func sampleDecodeFloat32Func(bitsPerSample int, wavFormat uint16) (func(io.Reade
 			return func(r io.Reader, buf []byte) (float32, error) {
 				_, err := r.Read(buf[:8])
 				if err != nil {
-					return 0, err
+					return 0, fmt.Errorf("failed to read 64-bit float sample: %w", err)
 				}
 
 				value := math.Float64frombits(binary.LittleEndian.Uint64(buf[:8]))
@@ -600,13 +615,13 @@ func sampleDecodeFloat32Func(bitsPerSample int, wavFormat uint16) (func(io.Reade
 
 	decodeInt, err := sampleDecodeFunc(bitsPerSample)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to create int decoder: %w", err)
 	}
 
 	return func(r io.Reader, buf []byte) (float32, error) {
 		value, err := decodeInt(r, buf)
 		if err != nil {
-			return 0, err
+			return 0, fmt.Errorf("failed to decode int sample: %w", err)
 		}
 
 		return normalizePCMInt(value, bitsPerSample), nil

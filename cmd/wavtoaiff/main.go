@@ -38,62 +38,63 @@ func main() {
 		sourcePath = strings.Replace(sourcePath, "~", usr.HomeDir, 1)
 	}
 
-	f, err := os.Open(*flagPath)
+	file, err := os.Open(*flagPath)
 	if err != nil {
 		fmt.Println("Invalid path", *flagPath, err)
 		os.Exit(1)
 	}
-	defer f.Close()
+	defer file.Close()
 
-	d := wav.NewDecoder(f)
-	if !d.IsValidFile() {
+	decoder := wav.NewDecoder(file)
+	if !decoder.IsValidFile() {
 		fmt.Println("invalid WAV file")
 		os.Exit(1)
 	}
 
 	outPath := sourcePath[:len(sourcePath)-len(filepath.Ext(sourcePath))] + ".aif"
 
-	of, err := os.Create(outPath)
+	outFile, err := os.Create(outPath)
 	if err != nil {
 		fmt.Println("Failed to create", outPath)
 		panic(err)
 	}
-	defer of.Close()
+	defer outFile.Close()
 
-	e := aiff.NewEncoder(of, int(d.SampleRate), int(d.BitDepth), int(d.NumChans))
+	encoder := aiff.NewEncoder(outFile, int(decoder.SampleRate), int(decoder.BitDepth), int(decoder.NumChans))
 
 	format := &audio.Format{
-		NumChannels: int(d.NumChans),
-		SampleRate:  int(d.SampleRate),
+		NumChannels: int(decoder.NumChans),
+		SampleRate:  int(decoder.SampleRate),
 	}
 
 	bufferSize := 1000000
 	buf := &audio.Float32Buffer{Data: make([]float32, bufferSize), Format: format}
 
-	var n int
+	var num int
 	for err == nil {
-		n, err = d.PCMBuffer(buf)
+		num, err = decoder.PCMBuffer(buf)
 		if err != nil {
 			break
 		}
 
-		if n == 0 {
+		if num == 0 {
 			break
 		}
 
 		data := buf.Data
-		if n != len(data) {
-			data = data[:n]
+		if num != len(data) {
+			data = data[:num]
 		}
 
-		intBuf := float32ToIntBuffer(data, format, int(d.BitDepth))
-		err := e.Write(intBuf)
+		intBuf := float32ToIntBuffer(data, format, int(decoder.BitDepth))
+
+		err := encoder.Write(intBuf)
 		if err != nil {
 			panic(err)
 		}
 	}
 
-	if err := e.Close(); err != nil {
+	if err := encoder.Close(); err != nil {
 		panic(err)
 	}
 

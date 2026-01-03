@@ -18,15 +18,15 @@ func main() {
 
 	log.Printf("generating a %f sec sine wav at %f hz", *length, *frequency)
 
-	f, err := os.Create(*output)
+	file, err := os.Create(*output)
 	if err != nil {
 		log.Fatalf("error creating %s: %s", *output, err)
 	}
-	defer f.Close()
+	defer file.Close()
 
 	const sampleRate = 48000
 
-	wavOut := wav.NewEncoder(f, sampleRate, 16, 1, 1)
+	wavOut := wav.NewEncoder(file, sampleRate, 16, 1, 1)
 	numSamples := int(sampleRate * *length)
 
 	defer wavOut.Close()

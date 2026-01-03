@@ -15,13 +15,13 @@ func main() {
 		os.Exit(1)
 	}
 
-	f, err := os.Open(os.Args[1])
+	file, err := os.Open(os.Args[1])
 	if err != nil {
 		panic(err)
 	}
-	defer f.Close()
+	defer file.Close()
 
-	dec := wav.NewDecoder(f)
+	dec := wav.NewDecoder(file)
 	dec.ReadMetadata()
 
 	if err := dec.Err(); err != nil {

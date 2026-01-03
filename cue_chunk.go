@@ -9,6 +9,13 @@ import (
 	"github.com/go-audio/riff"
 )
 
+var (
+	// ErrCuePointIDNotFound is returned when cue point ID cannot be read.
+	ErrCuePointIDNotFound = errors.New("failed to read the cue point ID")
+	// ErrDataChunkIDNotFound is returned when data chunk ID cannot be read.
+	ErrDataChunkIDNotFound = errors.New("failed to read the data chunk id")
+)
+
 // CuePoint defines an offset which marks a noteworthy sections of the audio
 // content. For example, the beginning and end of a verse in a song may have cue
 // points to make them easier to find.
@@ -69,10 +76,10 @@ func DecodeCueChunk(d *Decoder, ch *riff.Chunk) error {
 			return fmt.Errorf("failed to read the CUE chunk - %w", err)
 		}
 
-		r := bytes.NewReader(buf)
+		reader := bytes.NewReader(buf)
 
 		var nbrCues uint32
-		if err := binary.Read(r, binary.LittleEndian, &nbrCues); err != nil {
+		if err := binary.Read(reader, binary.LittleEndian, &nbrCues); err != nil {
 			return fmt.Errorf("failed to read the number of cues - %w", err)
 		}
 
@@ -87,32 +94,36 @@ func DecodeCueChunk(d *Decoder, ch *riff.Chunk) error {
 			for range nbrCues {
 				c := &CuePoint{}
 
-				if _, err = r.Read(scratch); err != nil {
-					return errors.New("failed to read the cue point ID")
+				if _, err = reader.Read(scratch); err != nil {
+					return ErrCuePointIDNotFound
 				}
 
 				copy(c.ID[:], scratch[:4])
-				err := binary.Read(r, binary.LittleEndian, &c.Position)
+
+				err := binary.Read(reader, binary.LittleEndian, &c.Position)
 				if err != nil {
-					return err
+					return fmt.Errorf("failed to read cue point position: %w", err)
 				}
 
-				if _, err = r.Read(scratch); err != nil {
-					return errors.New("failed to read the data chunk id")
+				if _, err = reader.Read(scratch); err != nil {
+					return fmt.Errorf("failed to read data chunk ID: %w", err)
 				}
 
 				copy(c.DataChunkID[:], scratch[:4])
-				err = binary.Read(r, binary.LittleEndian, &c.ChunkStart)
+
+				err = binary.Read(reader, binary.LittleEndian, &c.ChunkStart)
 				if err != nil {
-					return err
+					return fmt.Errorf("failed to read chunk start: %w", err)
 				}
-				err = binary.Read(r, binary.LittleEndian, &c.BlockStart)
+
+				err = binary.Read(reader, binary.LittleEndian, &c.BlockStart)
 				if err != nil {
-					return err
+					return fmt.Errorf("failed to read block start: %w", err)
 				}
-				err = binary.Read(r, binary.LittleEndian, &c.SampleOffset)
+
+				err = binary.Read(reader, binary.LittleEndian, &c.SampleOffset)
 				if err != nil {
-					return err
+					return fmt.Errorf("failed to read sample offset: %w", err)
 				}
 
 				d.Metadata.CuePoints = append(d.Metadata.CuePoints, c)

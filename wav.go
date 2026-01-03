@@ -17,14 +17,14 @@ func nullTermStr(b []byte) string {
 	return string(b[:clen(b)])
 }
 
-func clen(n []byte) int {
-	for i := range n {
-		if n[i] == 0 {
+func clen(num []byte) int {
+	for i := range num {
+		if num[i] == 0 {
 			return i
 		}
 	}
 
-	return len(n)
+	return len(num)
 }
 
 func bytesNumFromDuration(dur time.Duration, sampleRate, bitDepth int) int {
