@@ -29,6 +29,11 @@ var (
 	ErrPCMDataNotFound = errors.New("PCM data not found")
 	// ErrDurationNilPointer is returned when calculating duration on a nil decoder.
 	ErrDurationNilPointer = errors.New("can't calculate the duration of a nil pointer")
+	// ErrUnsupportedCompressedFormat is returned when a compressed audio format
+	// (e.g. GSM 6.10, TrueSpeech, Voxware) is encountered that has no decoder
+	// implementation. The WAV file structure is valid but the audio codec is not
+	// supported.
+	ErrUnsupportedCompressedFormat = errors.New("unsupported compressed audio format")
 )
 
 // Decoder handles the decoding of wav files.
@@ -42,6 +47,7 @@ type Decoder struct {
 
 	AvgBytesPerSec uint32
 	WavAudioFormat uint16
+	FmtChunk       *FmtChunk
 
 	err             error
 	PCMSize         int
@@ -50,11 +56,13 @@ type Decoder struct {
 	PCMChunk *riff.Chunk
 	// Metadata for the current file
 	Metadata *Metadata
+	// UnknownChunks stores non-core chunks for optional round-trip writing.
+	UnknownChunks []RawChunk
 	// CompressedSamples stores the sample count from the fact chunk for
-	// compressed formats.
+	// compressed formats (diagnostic/informational only).
 	CompressedSamples uint32
-	compressedPCM     []float32
-	compressedPCMPos  int
+
+	unknownChunkOrder int
 }
 
 // NewDecoder creates a decoder for the passed wav reader.
@@ -90,8 +98,7 @@ func (d *Decoder) Rewind() error {
 	d.err = nil
 	d.NumChans = 0
 	d.CompressedSamples = 0
-	d.compressedPCM = nil
-	d.compressedPCMPos = 0
+	d.FmtChunk = nil
 
 	err = d.FwdToPCM()
 	if err != nil {
@@ -148,7 +155,7 @@ func (d *Decoder) IsValidFile() bool {
 		return false
 	}
 
-	if d.BitDepth < 8 && !isLegacyCompressedFormat(d.WavAudioFormat) {
+	if d.BitDepth < 8 && !isUnsupportedCompressedFormat(d.WavAudioFormat) {
 		return false
 	}
 
@@ -178,18 +185,31 @@ func (d *Decoder) ReadMetadata() {
 	if d.Err() != nil || d.Metadata != nil {
 		return
 	}
+	d.UnknownChunks = nil
+	d.unknownChunkOrder = 0
 
 	var (
 		chunk *riff.Chunk
 		err   error
 	)
+	seenData := d.PCMChunk != nil
 	for err == nil {
-		chunk, err = d.parser.NextChunk()
+		chunk, err = d.NextChunk()
 		if err != nil {
 			break
 		}
+		d.unknownChunkOrder++
 
 		switch chunk.ID {
+		case riff.DataFormatID:
+			seenData = true
+			chunk.Drain()
+		case CIDFact:
+			var sampleCount uint32
+			if readErr := chunk.ReadLE(&sampleCount); readErr == nil {
+				d.CompressedSamples = sampleCount
+			}
+			chunk.Drain()
 		case CIDList:
 			err = DecodeListChunk(d, chunk)
 			if err != nil {
@@ -217,8 +237,7 @@ func (d *Decoder) ReadMetadata() {
 				}
 			}
 		default:
-			// fmt.Println(string(chunk.ID[:]))
-			chunk.Drain()
+			d.captureUnknownChunk(chunk, !seenData)
 		}
 	}
 }
@@ -254,10 +273,20 @@ func (d *Decoder) FwdToPCM() error {
 			if err := chunk.ReadLE(&sampleCount); err == nil {
 				d.CompressedSamples = sampleCount
 			}
+			chunk.Drain()
+			continue
 		}
 
 		if chunk.ID == CIDList {
 			DecodeListChunk(d, chunk)
+			continue
+		}
+
+		if chunk.ID == CIDSmpl {
+			DecodeSamplerChunk(d, chunk)
+		}
+		if chunk.ID == CIDCue {
+			DecodeCueChunk(d, chunk)
 		}
 
 		chunk.Drain()
@@ -301,19 +330,14 @@ func (d *Decoder) FullPCMBuffer() (*audio.Float32Buffer, error) {
 		SampleRate:  int(d.SampleRate),
 	}
 
+	if isUnsupportedCompressedFormat(d.WavAudioFormat) {
+		return nil, unsupportedCompressedFormatError(d.WavAudioFormat)
+	}
+
 	buf := &audio.Float32Buffer{
 		Data:           make([]float32, 4096),
 		Format:         format,
 		SourceBitDepth: int(d.BitDepth),
-	}
-	if isLegacyCompressedFormat(d.WavAudioFormat) {
-		data, err := d.decodeLegacyCompressed()
-		if err != nil {
-			return nil, err
-		}
-
-		buf.Data = data
-		return buf, nil
 	}
 
 	bytesPerSample := bytesPerSample(int(d.BitDepth))
@@ -371,30 +395,8 @@ func (d *Decoder) PCMBuffer(buf *audio.Float32Buffer) (n int, err error) {
 
 	buf.SourceBitDepth = int(d.BitDepth)
 
-	if isLegacyCompressedFormat(d.WavAudioFormat) {
-		if d.compressedPCM == nil {
-			d.compressedPCM, err = d.decodeLegacyCompressed()
-			if err != nil {
-				return 0, err
-			}
-			d.compressedPCMPos = 0
-		}
-
-		if d.compressedPCMPos >= len(d.compressedPCM) {
-			buf.Format = format
-			return 0, nil
-		}
-
-		remaining := len(d.compressedPCM) - d.compressedPCMPos
-		if remaining > len(buf.Data) {
-			remaining = len(buf.Data)
-		}
-
-		copy(buf.Data[:remaining], d.compressedPCM[d.compressedPCMPos:d.compressedPCMPos+remaining])
-		d.compressedPCMPos += remaining
-		buf.Format = format
-
-		return remaining, nil
+	if isUnsupportedCompressedFormat(d.WavAudioFormat) {
+		return 0, unsupportedCompressedFormatError(d.WavAudioFormat)
 	}
 
 	decodeF, err := sampleDecodeFloat32Func(int(d.BitDepth), d.WavAudioFormat)
@@ -556,9 +558,11 @@ func (d *Decoder) readHeaders() error {
 		}
 
 		if chunk.ID == riff.FmtID {
-			if err := decodeWavHeaderChunk(chunk, d.parser); err != nil {
+			fmtChunk, err := decodeWavHeaderChunk(chunk, d.parser)
+			if err != nil {
 				return fmt.Errorf("failed to decode fmt chunk: %w", err)
 			}
+			d.FmtChunk = fmtChunk
 
 			d.NumChans = d.parser.NumChannels
 			d.BitDepth = d.parser.BitsPerSample
@@ -592,71 +596,101 @@ func (d *Decoder) readHeaders() error {
 	return d.err
 }
 
-func decodeWavHeaderChunk(chunk *riff.Chunk, parser *riff.Parser) error {
+func decodeWavHeaderChunk(chunk *riff.Chunk, parser *riff.Parser) (*FmtChunk, error) {
 	if chunk == nil || parser == nil {
-		return errors.New("nil chunk/parser pointer")
+		return nil, errors.New("nil chunk/parser pointer")
 	}
 
-	if err := chunk.ReadLE(&parser.WavAudioFormat); err != nil {
-		return fmt.Errorf("failed to read wav format: %w", err)
+	fmtChunk := &FmtChunk{}
+
+	if err := chunk.ReadLE(&fmtChunk.FormatTag); err != nil {
+		return nil, fmt.Errorf("failed to read wav format: %w", err)
 	}
-	if err := chunk.ReadLE(&parser.NumChannels); err != nil {
-		return fmt.Errorf("failed to read channels: %w", err)
+	if err := chunk.ReadLE(&fmtChunk.NumChannels); err != nil {
+		return nil, fmt.Errorf("failed to read channels: %w", err)
 	}
-	if err := chunk.ReadLE(&parser.SampleRate); err != nil {
-		return fmt.Errorf("failed to read sample rate: %w", err)
+	if err := chunk.ReadLE(&fmtChunk.SampleRate); err != nil {
+		return nil, fmt.Errorf("failed to read sample rate: %w", err)
 	}
-	if err := chunk.ReadLE(&parser.AvgBytesPerSec); err != nil {
-		return fmt.Errorf("failed to read avg bytes/sec: %w", err)
+	if err := chunk.ReadLE(&fmtChunk.AvgBytesPerSec); err != nil {
+		return nil, fmt.Errorf("failed to read avg bytes/sec: %w", err)
 	}
-	if err := chunk.ReadLE(&parser.BlockAlign); err != nil {
-		return fmt.Errorf("failed to read block align: %w", err)
+	if err := chunk.ReadLE(&fmtChunk.BlockAlign); err != nil {
+		return nil, fmt.Errorf("failed to read block align: %w", err)
 	}
-	if err := chunk.ReadLE(&parser.BitsPerSample); err != nil {
-		return fmt.Errorf("failed to read bit depth: %w", err)
+	if err := chunk.ReadLE(&fmtChunk.BitsPerSample); err != nil {
+		return nil, fmt.Errorf("failed to read bit depth: %w", err)
 	}
+
+	parser.NumChannels = fmtChunk.NumChannels
+	parser.SampleRate = fmtChunk.SampleRate
+	parser.AvgBytesPerSec = fmtChunk.AvgBytesPerSec
+	parser.BlockAlign = fmtChunk.BlockAlign
+	parser.BitsPerSample = fmtChunk.BitsPerSample
+	parser.WavAudioFormat = fmtChunk.FormatTag
 
 	if chunk.Size <= 16 {
-		return nil
+		return fmtChunk, nil
 	}
 
 	var extraSize uint16
 	if err := chunk.ReadLE(&extraSize); err != nil {
-		return fmt.Errorf("failed to read fmt extension size: %w", err)
+		return nil, fmt.Errorf("failed to read fmt extension size: %w", err)
+	}
+	fmtChunk.ExtraData = make([]byte, extraSize)
+	if extraSize > 0 {
+		if err := chunk.ReadLE(&fmtChunk.ExtraData); err != nil {
+			return nil, fmt.Errorf("failed to read fmt extension data: %w", err)
+		}
 	}
 
-	if parser.WavAudioFormat != wavFormatExtensible || extraSize < 22 {
+	if fmtChunk.FormatTag != wavFormatExtensible || extraSize < 22 {
 		chunk.Drain()
 
-		return nil
+		return fmtChunk, nil
 	}
 
-	var validBitsPerSample uint16
-	if err := chunk.ReadLE(&validBitsPerSample); err != nil {
-		return fmt.Errorf("failed to read valid bits: %w", err)
+	ext := &FmtExtensible{}
+	ext.ValidBitsPerSample = binary.LittleEndian.Uint16(fmtChunk.ExtraData[0:2])
+	ext.ChannelMask = binary.LittleEndian.Uint32(fmtChunk.ExtraData[2:6])
+	copy(ext.SubFormat[:], fmtChunk.ExtraData[6:22])
+	if len(fmtChunk.ExtraData) > 22 {
+		ext.ExtraData = append(ext.ExtraData, fmtChunk.ExtraData[22:]...)
 	}
-
-	var channelMask uint32
-	if err := chunk.ReadLE(&channelMask); err != nil {
-		return fmt.Errorf("failed to read channel mask: %w", err)
-	}
-
-	var subFormat [16]byte
-	if err := chunk.ReadLE(&subFormat); err != nil {
-		return fmt.Errorf("failed to read sub format: %w", err)
-	}
-
-	parser.WavAudioFormat = binary.LittleEndian.Uint16(subFormat[:2])
+	fmtChunk.Extensible = ext
+	parser.WavAudioFormat = fmtChunk.EffectiveFormatTag()
 	chunk.Drain()
 
-	return nil
+	return fmtChunk, nil
+}
+
+func (d *Decoder) captureUnknownChunk(chunk *riff.Chunk, beforeData bool) {
+	if d == nil || chunk == nil {
+		return
+	}
+
+	data, err := io.ReadAll(chunk)
+	if err != nil {
+		d.err = fmt.Errorf("failed to read unknown chunk %s: %w", chunk.ID, err)
+
+		return
+	}
+	chunk.Drain()
+
+	d.UnknownChunks = append(d.UnknownChunks, RawChunk{
+		ID:         chunk.ID,
+		Size:       uint32(len(data)),
+		Data:       data,
+		Order:      d.unknownChunkOrder,
+		BeforeData: beforeData,
+	})
 }
 
 func bytesPerSample(bitDepth int) int {
 	return (bitDepth-1)/8 + 1
 }
 
-func isLegacyCompressedFormat(wavFormat uint16) bool {
+func isUnsupportedCompressedFormat(wavFormat uint16) bool {
 	switch wavFormat {
 	case 34, 49, 6172:
 		return true
@@ -665,93 +699,20 @@ func isLegacyCompressedFormat(wavFormat uint16) bool {
 	}
 }
 
-func compressedSamplesFromData(format uint16, dataSize int) int {
-	if dataSize <= 0 {
-		return 0
-	}
-
-	switch format {
-	case 49: // GSM 6.10
-		return dataSize * 320 / 65
-	case 34: // TrueSpeech
-		return dataSize * 240 / 32
-	case 6172: // Voxware
-		return dataSize * 720 / 27
-	default:
-		return dataSize
-	}
-}
-
-func decodeLegacyCompressedSamples(format uint16, data []byte, targetSamples int) []float32 {
-	if len(data) == 0 || targetSamples <= 0 {
-		return nil
-	}
-
-	// Best-effort fallback for legacy codecs with no built-in decoder.
-	// We derive a stable pseudo-waveform from encoded bytes while honoring
-	// output sample count from the fact chunk when available.
-	out := make([]float32, targetSamples)
-	state := 0
-
-	scale := 768
-	switch format {
+func unsupportedCompressedFormatError(wavFormat uint16) error {
+	var name string
+	switch wavFormat {
 	case 49:
-		scale = 640
+		name = "GSM 6.10"
 	case 34:
-		scale = 512
+		name = "TrueSpeech"
 	case 6172:
-		scale = 896
+		name = "Voxware"
+	default:
+		name = fmt.Sprintf("format tag %d", wavFormat)
 	}
 
-	for i := range targetSamples {
-		b := data[(i*len(data))/targetSamples]
-		var nib int
-		if i&1 == 0 {
-			nib = int(b & 0x0F)
-		} else {
-			nib = int((b >> 4) & 0x0F)
-		}
-		if nib >= 8 {
-			nib -= 16
-		}
-
-		state += nib * scale
-		if state > maxPCMInt16 {
-			state = maxPCMInt16
-		} else if state < -int(scalePCMInt16) {
-			state = -int(scalePCMInt16)
-		}
-
-		out[i] = normalizePCMInt(state, 16)
-	}
-
-	return out
-}
-
-func (d *Decoder) decodeLegacyCompressed() ([]float32, error) {
-	if d.PCMChunk == nil {
-		return nil, ErrPCMChunkNotFound
-	}
-
-	data, err := io.ReadAll(d.PCMChunk)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read compressed data: %w", err)
-	}
-
-	samples := int(d.CompressedSamples)
-	if samples <= 0 {
-		samples = compressedSamplesFromData(d.WavAudioFormat, len(data))
-	}
-	if samples <= 0 {
-		return nil, errors.New("unable to determine sample count for compressed data")
-	}
-
-	decoded := decodeLegacyCompressedSamples(d.WavAudioFormat, data, samples)
-	if len(decoded) == 0 {
-		return nil, errors.New("failed to decode compressed data")
-	}
-
-	return decoded, nil
+	return fmt.Errorf("%w: %s (format tag %d)", ErrUnsupportedCompressedFormat, name, wavFormat)
 }
 
 // sampleDecodeFunc returns a function that can be used to convert
@@ -853,8 +814,8 @@ func sampleDecodeFloat32Func(bitsPerSample int, wavFormat uint16) (func(io.Reade
 		}, nil
 	}
 
-	if isLegacyCompressedFormat(wavFormat) {
-		return nil, errors.New("legacy compressed codecs are decoded via chunk-level path")
+	if isUnsupportedCompressedFormat(wavFormat) {
+		return nil, unsupportedCompressedFormatError(wavFormat)
 	}
 
 	if wavFormat != wavFormatPCM {

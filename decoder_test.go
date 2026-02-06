@@ -531,15 +531,15 @@ func TestDecoder_Int12MatchesInt16Fixture(t *testing.T) {
 	}
 }
 
-func TestDecoder_LegacyCompressedFormats(t *testing.T) {
+func TestDecoder_UnsupportedCompressedFormats(t *testing.T) {
 	testCases := []struct {
-		path            string
-		formatCode      uint16
-		expectedSamples int
+		path       string
+		formatCode uint16
+		formatName string
 	}{
-		{path: "fixtures/addf8-GSM-GW.wav", formatCode: 49, expectedSamples: 23808},
-		{path: "fixtures/truspech.wav", formatCode: 34, expectedSamples: 69578},
-		{path: "fixtures/voxware.wav", formatCode: 6172, expectedSamples: 69120},
+		{path: "fixtures/addf8-GSM-GW.wav", formatCode: 49, formatName: "GSM 6.10"},
+		{path: "fixtures/truspech.wav", formatCode: 34, formatName: "TrueSpeech"},
+		{path: "fixtures/voxware.wav", formatCode: 6172, formatName: "Voxware"},
 	}
 
 	for _, tc := range testCases {
@@ -552,48 +552,36 @@ func TestDecoder_LegacyCompressedFormats(t *testing.T) {
 
 			d := NewDecoder(f)
 
+			// File structure is valid WAV even though codec is unsupported
 			if !d.IsValidFile() {
-				t.Fatalf("expected compressed fixture %s to be valid", tc.path)
-			}
-
-			fullBuf, err := d.FullPCMBuffer()
-			if err != nil {
-				t.Fatalf("unexpected decode error for %s: %v", tc.path, err)
+				t.Fatalf("expected %s to be a valid WAV file", tc.path)
 			}
 
 			if d.WavAudioFormat != tc.formatCode {
 				t.Fatalf("expected format %d, got %d", tc.formatCode, d.WavAudioFormat)
 			}
 
-			if len(fullBuf.Data) != tc.expectedSamples {
-				t.Fatalf("expected %d samples, got %d", tc.expectedSamples, len(fullBuf.Data))
+			// FullPCMBuffer must return ErrUnsupportedCompressedFormat
+			_, err = d.FullPCMBuffer()
+			if !errors.Is(err, ErrUnsupportedCompressedFormat) {
+				t.Fatalf("FullPCMBuffer: expected ErrUnsupportedCompressedFormat, got %v", err)
 			}
 
+			// PCMBuffer must also return ErrUnsupportedCompressedFormat
 			if err := d.Rewind(); err != nil {
 				t.Fatalf("rewind failed: %v", err)
 			}
-
-			streamed := make([]float32, 0, tc.expectedSamples)
-			tmp := &audio.Float32Buffer{
+			buf := &audio.Float32Buffer{
 				Format: &audio.Format{
 					NumChannels: int(d.NumChans),
 					SampleRate:  int(d.SampleRate),
 				},
 				Data: make([]float32, 2048),
 			}
-			for {
-				n, err := d.PCMBuffer(tmp)
-				if err != nil {
-					t.Fatalf("pcm buffer failed: %v", err)
-				}
-				if n == 0 {
-					break
-				}
-
-				streamed = append(streamed, tmp.Data[:n]...)
+			_, err = d.PCMBuffer(buf)
+			if !errors.Is(err, ErrUnsupportedCompressedFormat) {
+				t.Fatalf("PCMBuffer: expected ErrUnsupportedCompressedFormat, got %v", err)
 			}
-
-			assertFloat32SlicesClose(t, streamed, fullBuf.Data, 1e-6)
 		})
 	}
 }
@@ -916,6 +904,160 @@ func TestDecoder_NilReceiver(t *testing.T) {
 	err = d.FwdToPCM()
 	if err == nil {
 		t.Fatal("FwdToPCM on nil decoder should return error")
+	}
+}
+
+func TestDecoder_FmtChunkExtensible(t *testing.T) {
+	file, err := os.Open("fixtures/M1F1-float32WE-AFsp.wav")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer file.Close()
+
+	d := NewDecoder(file)
+	d.ReadInfo()
+	if err := d.Err(); err != nil {
+		t.Fatalf("read info failed: %v", err)
+	}
+
+	if d.FmtChunk == nil {
+		t.Fatal("expected fmt chunk to be populated")
+	}
+	if d.FmtChunk.FormatTag != wavFormatExtensible {
+		t.Fatalf("expected extensible format tag, got %d", d.FmtChunk.FormatTag)
+	}
+	if d.FmtChunk.Extensible == nil {
+		t.Fatal("expected extensible metadata")
+	}
+	if d.FmtChunk.EffectiveFormatTag() != d.WavAudioFormat {
+		t.Fatalf("effective format mismatch, fmt=%d decoder=%d", d.FmtChunk.EffectiveFormatTag(), d.WavAudioFormat)
+	}
+	if d.FmtChunk.Extensible.ValidBitsPerSample == 0 {
+		t.Fatal("expected non-zero valid bits")
+	}
+}
+
+func TestEncoder_WriteExtensibleFmtChunk(t *testing.T) {
+	outPath := filepath.Join(t.TempDir(), "extensible_fmt.wav")
+	out, err := os.Create(outPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	enc := NewEncoder(out, 48000, 16, 2, wavFormatPCM)
+	enc.FmtChunk = &FmtChunk{
+		FormatTag: wavFormatExtensible,
+		Extensible: &FmtExtensible{
+			ValidBitsPerSample: 16,
+			ChannelMask:        0x3,
+			SubFormat:          makeSubFormatGUID(wavFormatPCM),
+		},
+	}
+
+	if err := enc.Write(&audio.Float32Buffer{
+		Format: &audio.Format{NumChannels: 2, SampleRate: 48000},
+		Data:   []float32{0, 0, 0.25, -0.25},
+	}); err != nil {
+		t.Fatalf("write failed: %v", err)
+	}
+	if err := enc.Close(); err != nil {
+		t.Fatalf("close failed: %v", err)
+	}
+	if err := out.Close(); err != nil {
+		t.Fatalf("file close failed: %v", err)
+	}
+
+	verify, err := os.Open(outPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer verify.Close()
+
+	dec := NewDecoder(verify)
+	if _, err := dec.FullPCMBuffer(); err != nil {
+		t.Fatalf("decode failed: %v", err)
+	}
+
+	if dec.FmtChunk == nil || dec.FmtChunk.Extensible == nil {
+		t.Fatal("expected extensible fmt chunk after decode")
+	}
+	if dec.FmtChunk.FormatTag != wavFormatExtensible {
+		t.Fatalf("expected format tag 0xFFFE, got %d", dec.FmtChunk.FormatTag)
+	}
+	if dec.WavAudioFormat != wavFormatPCM {
+		t.Fatalf("expected effective PCM format, got %d", dec.WavAudioFormat)
+	}
+	if dec.FmtChunk.Extensible.ChannelMask != 0x3 {
+		t.Fatalf("expected channel mask 0x3, got 0x%X", dec.FmtChunk.Extensible.ChannelMask)
+	}
+	if dec.FmtChunk.Extensible.ValidBitsPerSample != 16 {
+		t.Fatalf("expected valid bits 16, got %d", dec.FmtChunk.Extensible.ValidBitsPerSample)
+	}
+}
+
+func TestFmtChunkExtensibleRoundTripPreservesFields(t *testing.T) {
+	in, err := os.Open("fixtures/M1F1-float32WE-AFsp.wav")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer in.Close()
+
+	dec := NewDecoder(in)
+	buf, err := dec.FullPCMBuffer()
+	if err != nil {
+		t.Fatalf("decode input failed: %v", err)
+	}
+
+	if dec.FmtChunk == nil || dec.FmtChunk.Extensible == nil {
+		t.Fatal("expected source file to include extensible fmt")
+	}
+
+	outPath := filepath.Join(t.TempDir(), "roundtrip_extensible.wav")
+	out, err := os.Create(outPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	enc := NewEncoder(out, buf.Format.SampleRate, int(dec.BitDepth), buf.Format.NumChannels, int(dec.WavAudioFormat))
+	enc.FmtChunk = dec.FmtChunk.Clone()
+	if err := enc.Write(buf); err != nil {
+		t.Fatalf("encode failed: %v", err)
+	}
+	if err := enc.Close(); err != nil {
+		t.Fatalf("close failed: %v", err)
+	}
+	if err := out.Close(); err != nil {
+		t.Fatalf("file close failed: %v", err)
+	}
+
+	verify, err := os.Open(outPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer verify.Close()
+
+	dec2 := NewDecoder(verify)
+	if _, err := dec2.FullPCMBuffer(); err != nil {
+		t.Fatalf("decode roundtrip failed: %v", err)
+	}
+
+	if dec2.FmtChunk == nil || dec2.FmtChunk.Extensible == nil {
+		t.Fatal("expected extensible fmt after roundtrip")
+	}
+	if dec2.FmtChunk.FormatTag != wavFormatExtensible {
+		t.Fatalf("expected roundtrip extensible format tag, got %d", dec2.FmtChunk.FormatTag)
+	}
+	if dec2.WavAudioFormat != dec.WavAudioFormat {
+		t.Fatalf("expected effective format %d, got %d", dec.WavAudioFormat, dec2.WavAudioFormat)
+	}
+	if dec2.FmtChunk.Extensible.ValidBitsPerSample != dec.FmtChunk.Extensible.ValidBitsPerSample {
+		t.Fatalf("valid bits changed: expected %d got %d", dec.FmtChunk.Extensible.ValidBitsPerSample, dec2.FmtChunk.Extensible.ValidBitsPerSample)
+	}
+	if dec2.FmtChunk.Extensible.ChannelMask != dec.FmtChunk.Extensible.ChannelMask {
+		t.Fatalf("channel mask changed: expected 0x%X got 0x%X", dec.FmtChunk.Extensible.ChannelMask, dec2.FmtChunk.Extensible.ChannelMask)
+	}
+	if dec2.FmtChunk.Extensible.SubFormat != dec.FmtChunk.Extensible.SubFormat {
+		t.Fatal("sub format GUID changed on roundtrip")
 	}
 }
 
