@@ -15,9 +15,14 @@ import (
 )
 
 var (
-	flagFileToTag   = flag.String("file", "", "Path to the wave file to tag")
-	flagDirToTag    = flag.String("dir", "", "Directory containing all the wav files to tag")
-	flagTitleRegexp = flag.String("regexp", "", `submatch regexp to use to set the title dynamically by extracting it from the filename (ignoring the extension), example: 'my_files_\d\d_(.*)'`)
+	flagFileToTag = flag.String("file", "", "Path to the wave file to tag")
+	flagDirToTag  = flag.String("dir", "", "Directory containing all the wav files to tag")
+	flagTitleRegexp = flag.String(
+		"regexp",
+		"",
+		"submatch regexp to use to set the title dynamically by extracting it from the "+
+			"filename (ignoring the extension), example: 'my_files_\\d\\d_(.*)'",
+	)
 	//
 	flagTitle     = flag.String("title", "", "File's title")
 	flagArtist    = flag.String("artist", "", "File's artist")
