@@ -3,8 +3,6 @@ package wav
 import (
 	"bytes"
 	"encoding/binary"
-	"errors"
-	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -108,12 +106,6 @@ func TestUnknownChunkRoundTripPreservesPayloadAndOrder(t *testing.T) {
 	}
 }
 
-type testChunk struct {
-	id   string
-	size uint32
-	data []byte
-}
-
 func makeWavWithUnknownChunks(t *testing.T) []byte {
 	t.Helper()
 
@@ -169,48 +161,4 @@ func writeTestChunk(t *testing.T, b *bytes.Buffer, id string, payload []byte) {
 			t.Fatalf("write chunk pad for %q: %v", id, err)
 		}
 	}
-}
-
-func parseWavChunks(data []byte) ([]testChunk, error) {
-	if len(data) < 12 {
-		return nil, errors.New("file too small")
-	}
-
-	if string(data[0:4]) != "RIFF" || string(data[8:12]) != "WAVE" {
-		return nil, errors.New("invalid riff/wave header")
-	}
-
-	chunks := make([]testChunk, 0)
-
-	offset := 12
-	for offset+8 <= len(data) {
-		id := string(data[offset : offset+4])
-		size := binary.LittleEndian.Uint32(data[offset+4 : offset+8])
-		offset += 8
-
-		end := offset + int(size)
-		if end > len(data) {
-			return nil, fmt.Errorf("chunk %q exceeds file size", id)
-		}
-
-		payload := append([]byte(nil), data[offset:end]...)
-		chunks = append(chunks, testChunk{id: id, size: size, data: payload})
-
-		offset = end
-		if size%2 == 1 {
-			offset++
-		}
-	}
-
-	return chunks, nil
-}
-
-func findChunk(chunks []testChunk, id string) (*testChunk, int) {
-	for i := range chunks {
-		if chunks[i].id == id {
-			return &chunks[i], i
-		}
-	}
-
-	return nil, -1
 }
