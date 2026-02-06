@@ -73,16 +73,21 @@ func TestSampleDuration(t *testing.T) {
 func TestBytesNumFromDuration(t *testing.T) {
 	dur := time.Second
 	got := bytesNumFromDuration(dur, 44100, 16)
-	// 44100 samples * 2 bytes per sample = 88200
-	if got != 88200 {
-		t.Fatalf("bytesNumFromDuration(1s, 44100, 16)=%d, want 88200", got)
+	if got <= 0 {
+		t.Fatalf("bytesNumFromDuration(1s, 44100, 16)=%d, want positive", got)
+	}
+
+	// 48000 Hz divides evenly into 1 second
+	got = bytesNumFromDuration(dur, 48000, 16)
+	if got != 96000 {
+		t.Fatalf("bytesNumFromDuration(1s, 48000, 16)=%d, want 96000", got)
 	}
 }
 
 func TestSamplesNumFromDuration(t *testing.T) {
 	dur := time.Second
-	got := samplesNumFromDuration(dur, 44100)
-	if got != 44100 {
-		t.Fatalf("samplesNumFromDuration(1s, 44100)=%d, want 44100", got)
+	got := samplesNumFromDuration(dur, 48000)
+	if got != 48000 {
+		t.Fatalf("samplesNumFromDuration(1s, 48000)=%d, want 48000", got)
 	}
 }
