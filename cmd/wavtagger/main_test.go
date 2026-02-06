@@ -84,3 +84,92 @@ func TestTagFileMissingInput(t *testing.T) {
 		t.Fatalf("expected an error for missing input file")
 	}
 }
+
+func TestTagFileWithDirectTitle(t *testing.T) {
+	tmpDir := t.TempDir()
+	inPath := filepath.Join(tmpDir, "test.wav")
+
+	data, err := os.ReadFile(filepath.Join("..", "..", "fixtures", "kick.wav"))
+	if err != nil {
+		t.Fatalf("read fixture: %v", err)
+	}
+
+	if err := os.WriteFile(inPath, data, 0o644); err != nil {
+		t.Fatalf("write temp input: %v", err)
+	}
+
+	*flagArtist = ""
+	*flagTitleRegexp = ""
+	*flagTitle = "Direct Title"
+	*flagComments = ""
+	*flagCopyright = ""
+	*flagGenre = ""
+	defer func() {
+		*flagTitle = ""
+	}()
+
+	if err := tagFile(inPath); err != nil {
+		t.Fatalf("tagFile returned error: %v", err)
+	}
+
+	outPath := filepath.Join(tmpDir, "wavtagger", "test.wav")
+	outFile, err := os.Open(outPath)
+	if err != nil {
+		t.Fatalf("open tagged file: %v", err)
+	}
+	defer outFile.Close()
+
+	dec := wav.NewDecoder(outFile)
+	dec.ReadMetadata()
+	if err := dec.Err(); err != nil {
+		t.Fatalf("decoder error: %v", err)
+	}
+
+	if dec.Metadata == nil {
+		t.Fatalf("expected metadata to be present")
+	}
+
+	if dec.Metadata.Title != "Direct Title" {
+		t.Fatalf("title=%q, want %q", dec.Metadata.Title, "Direct Title")
+	}
+}
+
+func TestTagFileRegexpNoMatch(t *testing.T) {
+	tmpDir := t.TempDir()
+	inPath := filepath.Join(tmpDir, "nomatch.wav")
+
+	data, err := os.ReadFile(filepath.Join("..", "..", "fixtures", "kick.wav"))
+	if err != nil {
+		t.Fatalf("read fixture: %v", err)
+	}
+
+	if err := os.WriteFile(inPath, data, 0o644); err != nil {
+		t.Fatalf("write temp input: %v", err)
+	}
+
+	*flagArtist = ""
+	*flagTitleRegexp = "^ZZZZZ_(.*)$"
+	*flagTitle = ""
+	*flagComments = ""
+	*flagCopyright = ""
+	*flagGenre = ""
+	defer func() {
+		*flagTitleRegexp = ""
+	}()
+
+	if err := tagFile(inPath); err != nil {
+		t.Fatalf("tagFile returned error: %v", err)
+	}
+
+	outPath := filepath.Join(tmpDir, "wavtagger", "nomatch.wav")
+	outFile, err := os.Open(outPath)
+	if err != nil {
+		t.Fatalf("open tagged file: %v", err)
+	}
+	defer outFile.Close()
+
+	dec := wav.NewDecoder(outFile)
+	if !dec.IsValidFile() {
+		t.Fatal("output should be a valid wav file")
+	}
+}

@@ -41,3 +41,59 @@ func TestRunPrintsMetadataWithoutPanic(t *testing.T) {
 		}
 	}
 }
+
+func TestRunNoMetadata(t *testing.T) {
+	var outBuf bytes.Buffer
+	err := run([]string{"../../fixtures/kick.wav"}, &outBuf)
+	if err != nil {
+		t.Fatalf("run failed: %v", err)
+	}
+
+	out := outBuf.String()
+	if !strings.Contains(out, "No metadata present") {
+		t.Fatalf("expected 'No metadata present' in output, got:\n%s", out)
+	}
+}
+
+func TestRunInvalidPath(t *testing.T) {
+	var outBuf bytes.Buffer
+	err := run([]string{"/nonexistent/path.wav"}, &outBuf)
+	if err == nil {
+		t.Fatal("expected error for invalid path")
+	}
+}
+
+func TestRunPrintsAllMetadataFields(t *testing.T) {
+	var outBuf bytes.Buffer
+	err := run([]string{"../../fixtures/listinfo.wav"}, &outBuf)
+	if err != nil {
+		t.Fatalf("run failed: %v", err)
+	}
+
+	out := outBuf.String()
+	fields := []string{
+		"Artist:",
+		"Title:",
+		"Comments:",
+		"Copyright:",
+		"CreationDate:",
+		"Engineer:",
+		"Technician:",
+		"Genre:",
+		"Keywords:",
+		"Medium:",
+		"Product:",
+		"Subject:",
+		"Software:",
+		"Source:",
+		"Location:",
+		"TrackNbr:",
+		"Sample Info:",
+	}
+
+	for _, field := range fields {
+		if !strings.Contains(out, field) {
+			t.Fatalf("expected output to contain %q\nfull output:\n%s", field, out)
+		}
+	}
+}

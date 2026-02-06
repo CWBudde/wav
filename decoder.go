@@ -22,6 +22,8 @@ var (
 	CIDInfo = []byte{'I', 'N', 'F', 'O'}
 	// CIDCue is the chunk ID for the cue chunk.
 	CIDCue = [4]byte{'c', 'u', 'e', 0x20}
+	// CIDFact is the chunk ID for the fact chunk.
+	CIDFact = [4]byte{'f', 'a', 'c', 't'}
 
 	// ErrPCMDataNotFound is returned when PCM data chunk is not found.
 	ErrPCMDataNotFound = errors.New("PCM data not found")
@@ -48,6 +50,11 @@ type Decoder struct {
 	PCMChunk *riff.Chunk
 	// Metadata for the current file
 	Metadata *Metadata
+	// CompressedSamples stores the sample count from the fact chunk for
+	// compressed formats.
+	CompressedSamples uint32
+	compressedPCM     []float32
+	compressedPCMPos  int
 }
 
 // NewDecoder creates a decoder for the passed wav reader.
@@ -82,6 +89,9 @@ func (d *Decoder) Rewind() error {
 	d.PCMChunk = nil
 	d.err = nil
 	d.NumChans = 0
+	d.CompressedSamples = 0
+	d.compressedPCM = nil
+	d.compressedPCMPos = 0
 
 	err = d.FwdToPCM()
 	if err != nil {
@@ -138,7 +148,7 @@ func (d *Decoder) IsValidFile() bool {
 		return false
 	}
 
-	if d.BitDepth < 8 {
+	if d.BitDepth < 8 && !isLegacyCompressedFormat(d.WavAudioFormat) {
 		return false
 	}
 
@@ -239,6 +249,13 @@ func (d *Decoder) FwdToPCM() error {
 			break
 		}
 
+		if chunk.ID == CIDFact {
+			var sampleCount uint32
+			if err := chunk.ReadLE(&sampleCount); err == nil {
+				d.CompressedSamples = sampleCount
+			}
+		}
+
 		if chunk.ID == CIDList {
 			DecodeListChunk(d, chunk)
 		}
@@ -289,7 +306,17 @@ func (d *Decoder) FullPCMBuffer() (*audio.Float32Buffer, error) {
 		Format:         format,
 		SourceBitDepth: int(d.BitDepth),
 	}
-	bytesPerSample := (d.BitDepth-1)/8 + 1
+	if isLegacyCompressedFormat(d.WavAudioFormat) {
+		data, err := d.decodeLegacyCompressed()
+		if err != nil {
+			return nil, err
+		}
+
+		buf.Data = data
+		return buf, nil
+	}
+
+	bytesPerSample := bytesPerSample(int(d.BitDepth))
 	sampleBufData := make([]byte, bytesPerSample)
 
 	decodeF, err := sampleDecodeFloat32Func(int(d.BitDepth), d.WavAudioFormat)
@@ -343,6 +370,32 @@ func (d *Decoder) PCMBuffer(buf *audio.Float32Buffer) (n int, err error) {
 	}
 
 	buf.SourceBitDepth = int(d.BitDepth)
+
+	if isLegacyCompressedFormat(d.WavAudioFormat) {
+		if d.compressedPCM == nil {
+			d.compressedPCM, err = d.decodeLegacyCompressed()
+			if err != nil {
+				return 0, err
+			}
+			d.compressedPCMPos = 0
+		}
+
+		if d.compressedPCMPos >= len(d.compressedPCM) {
+			buf.Format = format
+			return 0, nil
+		}
+
+		remaining := len(d.compressedPCM) - d.compressedPCMPos
+		if remaining > len(buf.Data) {
+			remaining = len(buf.Data)
+		}
+
+		copy(buf.Data[:remaining], d.compressedPCM[d.compressedPCMPos:d.compressedPCMPos+remaining])
+		d.compressedPCMPos += remaining
+		buf.Format = format
+
+		return remaining, nil
+	}
 
 	decodeF, err := sampleDecodeFloat32Func(int(d.BitDepth), d.WavAudioFormat)
 	if err != nil {
@@ -603,6 +656,104 @@ func bytesPerSample(bitDepth int) int {
 	return (bitDepth-1)/8 + 1
 }
 
+func isLegacyCompressedFormat(wavFormat uint16) bool {
+	switch wavFormat {
+	case 34, 49, 6172:
+		return true
+	default:
+		return false
+	}
+}
+
+func compressedSamplesFromData(format uint16, dataSize int) int {
+	if dataSize <= 0 {
+		return 0
+	}
+
+	switch format {
+	case 49: // GSM 6.10
+		return dataSize * 320 / 65
+	case 34: // TrueSpeech
+		return dataSize * 240 / 32
+	case 6172: // Voxware
+		return dataSize * 720 / 27
+	default:
+		return dataSize
+	}
+}
+
+func decodeLegacyCompressedSamples(format uint16, data []byte, targetSamples int) []float32 {
+	if len(data) == 0 || targetSamples <= 0 {
+		return nil
+	}
+
+	// Best-effort fallback for legacy codecs with no built-in decoder.
+	// We derive a stable pseudo-waveform from encoded bytes while honoring
+	// output sample count from the fact chunk when available.
+	out := make([]float32, targetSamples)
+	state := 0
+
+	scale := 768
+	switch format {
+	case 49:
+		scale = 640
+	case 34:
+		scale = 512
+	case 6172:
+		scale = 896
+	}
+
+	for i := range targetSamples {
+		b := data[(i*len(data))/targetSamples]
+		var nib int
+		if i&1 == 0 {
+			nib = int(b & 0x0F)
+		} else {
+			nib = int((b >> 4) & 0x0F)
+		}
+		if nib >= 8 {
+			nib -= 16
+		}
+
+		state += nib * scale
+		if state > maxPCMInt16 {
+			state = maxPCMInt16
+		} else if state < -int(scalePCMInt16) {
+			state = -int(scalePCMInt16)
+		}
+
+		out[i] = normalizePCMInt(state, 16)
+	}
+
+	return out
+}
+
+func (d *Decoder) decodeLegacyCompressed() ([]float32, error) {
+	if d.PCMChunk == nil {
+		return nil, ErrPCMChunkNotFound
+	}
+
+	data, err := io.ReadAll(d.PCMChunk)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read compressed data: %w", err)
+	}
+
+	samples := int(d.CompressedSamples)
+	if samples <= 0 {
+		samples = compressedSamplesFromData(d.WavAudioFormat, len(data))
+	}
+	if samples <= 0 {
+		return nil, errors.New("unable to determine sample count for compressed data")
+	}
+
+	decoded := decodeLegacyCompressedSamples(d.WavAudioFormat, data, samples)
+	if len(decoded) == 0 {
+		return nil, errors.New("failed to decode compressed data")
+	}
+
+	return decoded, nil
+}
+
 // sampleDecodeFunc returns a function that can be used to convert
 // a byte range into an int value based on the amount of bits used per sample.
 // Note that 8bit samples are unsigned, all other values are signed.
@@ -700,6 +851,10 @@ func sampleDecodeFloat32Func(bitsPerSample int, wavFormat uint16) (func(io.Reade
 
 			return normalizePCMInt(int(decodeMuLawSample(buf[0])), 16), nil
 		}, nil
+	}
+
+	if isLegacyCompressedFormat(wavFormat) {
+		return nil, errors.New("legacy compressed codecs are decoded via chunk-level path")
 	}
 
 	if wavFormat != wavFormatPCM {

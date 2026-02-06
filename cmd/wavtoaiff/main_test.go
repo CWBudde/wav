@@ -191,3 +191,50 @@ func TestRunConvertsFile(t *testing.T) {
 		t.Fatalf("expected output message to include %q, got %q", outPath, out.String())
 	}
 }
+
+func TestRunHomeExpansion(t *testing.T) {
+	dir := t.TempDir()
+	inPath := filepath.Join(dir, "kick.wav")
+
+	data, err := os.ReadFile(filepath.Join("..", "..", "fixtures", "kick.wav"))
+	if err != nil {
+		t.Fatalf("read fixture: %v", err)
+	}
+
+	if err := os.WriteFile(inPath, data, 0o644); err != nil {
+		t.Fatalf("write temp wav: %v", err)
+	}
+
+	// Provide a fake user.Current that returns dir as HomeDir
+	fakeUser := func() (*user.User, error) {
+		return &user.User{HomeDir: dir}, nil
+	}
+
+	var out bytes.Buffer
+	if err := run([]string{"-path", "~/kick.wav"}, fakeUser, &out); err != nil {
+		t.Fatalf("run with home expansion failed: %v", err)
+	}
+
+	outPath := filepath.Join(dir, "kick.aif")
+	if _, err := os.Stat(outPath); err != nil {
+		t.Fatalf("expected output file at %s: %v", outPath, err)
+	}
+}
+
+func TestRunUserResolutionError(t *testing.T) {
+	failUser := func() (*user.User, error) {
+		return nil, errors.New("no user")
+	}
+
+	err := run([]string{"-path", "/some/file.wav"}, failUser, &bytes.Buffer{})
+	if !errors.Is(err, errResolveHomeDir) {
+		t.Fatalf("expected errResolveHomeDir, got %v", err)
+	}
+}
+
+func TestRunFlagParseError(t *testing.T) {
+	err := run([]string{"-unknown-flag"}, user.Current, &bytes.Buffer{})
+	if err == nil {
+		t.Fatal("expected error for unknown flag")
+	}
+}

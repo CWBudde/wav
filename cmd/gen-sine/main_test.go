@@ -55,3 +55,36 @@ func TestRunFlagParseError(t *testing.T) {
 		t.Fatalf("expected failure for invalid flag value")
 	}
 }
+
+func TestRunDefaultParams(t *testing.T) {
+	outPath := filepath.Join(t.TempDir(), "default.wav")
+
+	err := run([]string{"-output", outPath, "-length", "0.005"})
+	if err != nil {
+		t.Fatalf("run with defaults failed: %v", err)
+	}
+
+	f, err := os.Open(outPath)
+	if err != nil {
+		t.Fatalf("open generated file: %v", err)
+	}
+	defer f.Close()
+
+	dec := wav.NewDecoder(f)
+	buf, err := dec.FullPCMBuffer()
+	if err != nil {
+		t.Fatalf("decode failed: %v", err)
+	}
+
+	// 0.005 sec * 48000 Hz = 240 samples
+	if len(buf.Data) != 240 {
+		t.Fatalf("expected 240 samples, got %d", len(buf.Data))
+	}
+}
+
+func TestRunInvalidOutputPath(t *testing.T) {
+	err := run([]string{"-output", "/nonexistent/dir/file.wav", "-length", "0.001"})
+	if err == nil {
+		t.Fatal("expected error for invalid output path")
+	}
+}

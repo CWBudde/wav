@@ -1,9 +1,12 @@
 package wav
 
 import (
+	"bytes"
 	"os"
 	"path"
 	"testing"
+
+	"github.com/go-audio/audio"
 )
 
 func TestEncoderRoundTrip(t *testing.T) {
@@ -188,4 +191,259 @@ func TestEncoderRoundTrip(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestEncoder_WriteFrame_PCM(t *testing.T) {
+	os.Mkdir("testOutput", 0o777)
+
+	tests := []struct {
+		name     string
+		bitDepth int
+		format   int
+		value    float32
+	}{
+		{"8bit PCM", 8, wavFormatPCM, 0.5},
+		{"16bit PCM", 16, wavFormatPCM, 0.5},
+		{"24bit PCM", 24, wavFormatPCM, -0.25},
+		{"32bit PCM", 32, wavFormatPCM, 0.75},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			outPath := path.Join("testOutput", "writeframe_"+tt.name+".wav")
+			f, err := os.Create(outPath)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer os.Remove(outPath)
+
+			enc := NewEncoder(f, 44100, tt.bitDepth, 1, tt.format)
+			for range 100 {
+				if err := enc.WriteFrame(tt.value); err != nil {
+					t.Fatalf("WriteFrame failed: %v", err)
+				}
+			}
+
+			if err := enc.Close(); err != nil {
+				t.Fatal(err)
+			}
+
+			f.Close()
+
+			verify, err := os.Open(outPath)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer verify.Close()
+
+			dec := NewDecoder(verify)
+			if !dec.IsValidFile() {
+				t.Fatal("output should be a valid wav file")
+			}
+		})
+	}
+}
+
+func TestEncoder_WriteFrame_Float(t *testing.T) {
+	os.Mkdir("testOutput", 0o777)
+
+	tests := []struct {
+		name     string
+		bitDepth int
+		value    any
+	}{
+		{"float32 32bit", 32, float32(0.5)},
+		{"float32 64bit", 64, float32(-0.25)},
+		{"float64 32bit", 32, float64(0.75)},
+		{"float64 64bit", 64, float64(-0.5)},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			outPath := path.Join("testOutput", "writeframe_float_"+tt.name+".wav")
+			f, err := os.Create(outPath)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer os.Remove(outPath)
+
+			enc := NewEncoder(f, 44100, tt.bitDepth, 1, wavFormatIEEEFloat)
+			for range 100 {
+				if err := enc.WriteFrame(tt.value); err != nil {
+					t.Fatalf("WriteFrame failed: %v", err)
+				}
+			}
+
+			if err := enc.Close(); err != nil {
+				t.Fatal(err)
+			}
+
+			f.Close()
+
+			verify, err := os.Open(outPath)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer verify.Close()
+
+			dec := NewDecoder(verify)
+			if !dec.IsValidFile() {
+				t.Fatal("output should be a valid wav file")
+			}
+		})
+	}
+}
+
+func TestEncoder_WriteFrame_G711(t *testing.T) {
+	os.Mkdir("testOutput", 0o777)
+
+	tests := []struct {
+		name   string
+		format int
+	}{
+		{"alaw", wavFormatALaw},
+		{"mulaw", wavFormatMuLaw},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			outPath := path.Join("testOutput", "writeframe_"+tt.name+".wav")
+			f, err := os.Create(outPath)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer os.Remove(outPath)
+
+			enc := NewEncoder(f, 8000, 8, 1, tt.format)
+			for range 100 {
+				if err := enc.WriteFrame(float32(0.3)); err != nil {
+					t.Fatalf("WriteFrame failed: %v", err)
+				}
+			}
+
+			if err := enc.Close(); err != nil {
+				t.Fatal(err)
+			}
+
+			f.Close()
+
+			verify, err := os.Open(outPath)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer verify.Close()
+
+			dec := NewDecoder(verify)
+			if !dec.IsValidFile() {
+				t.Fatal("output should be a valid wav file")
+			}
+		})
+	}
+}
+
+func TestEncoder_WriteFrame_DefaultType(t *testing.T) {
+	os.Mkdir("testOutput", 0o777)
+	outPath := path.Join("testOutput", "writeframe_int16.wav")
+	f, err := os.Create(outPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.Remove(outPath)
+
+	enc := NewEncoder(f, 44100, 16, 1, wavFormatPCM)
+	// WriteFrame with int16 goes through the default case
+	if err := enc.WriteFrame(int16(1000)); err != nil {
+		t.Fatalf("WriteFrame with int16 failed: %v", err)
+	}
+
+	if err := enc.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	f.Close()
+}
+
+func TestEncoder_Close_NilEncoder(t *testing.T) {
+	var e *Encoder
+	if err := e.Close(); err != nil {
+		t.Fatalf("Close on nil encoder should return nil, got %v", err)
+	}
+}
+
+func TestEncoder_Close_NilWriter(t *testing.T) {
+	e := &Encoder{}
+	if err := e.Close(); err != nil {
+		t.Fatalf("Close with nil writer should return nil, got %v", err)
+	}
+}
+
+func TestEncoder_AddBuffer_Nil(t *testing.T) {
+	var buf bytes.Buffer
+	e := NewEncoder(nopWriteSeeker{&buf}, 44100, 16, 1, wavFormatPCM)
+
+	err := e.addBuffer(nil)
+	if err == nil {
+		t.Fatal("addBuffer(nil) should return error")
+	}
+}
+
+func TestEncoder_Write_MultipleBuffers(t *testing.T) {
+	os.Mkdir("testOutput", 0o777)
+	outPath := path.Join("testOutput", "multi_write.wav")
+	f, err := os.Create(outPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.Remove(outPath)
+
+	enc := NewEncoder(f, 44100, 16, 1, wavFormatPCM)
+	format := &audio.Format{NumChannels: 1, SampleRate: 44100}
+
+	// Write two separate buffers
+	for range 2 {
+		buf := &audio.Float32Buffer{
+			Data:           []float32{0.1, 0.2, 0.3, -0.1, -0.2, -0.3},
+			Format:         format,
+			SourceBitDepth: 16,
+		}
+
+		if err := enc.Write(buf); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	if err := enc.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	f.Close()
+
+	verify, err := os.Open(outPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer verify.Close()
+
+	dec := NewDecoder(verify)
+	pcm, err := dec.FullPCMBuffer()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(pcm.Data) != 12 {
+		t.Fatalf("expected 12 samples, got %d", len(pcm.Data))
+	}
+}
+
+// nopWriteSeeker wraps a bytes.Buffer to satisfy io.WriteSeeker.
+type nopWriteSeeker struct {
+	buf *bytes.Buffer
+}
+
+func (n nopWriteSeeker) Write(p []byte) (int, error) {
+	return n.buf.Write(p)
+}
+
+func (n nopWriteSeeker) Seek(offset int64, whence int) (int64, error) {
+	return 0, nil
 }

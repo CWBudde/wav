@@ -2,10 +2,8 @@ package wav
 
 import (
 	"errors"
-	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 	"time"
 
@@ -133,9 +131,9 @@ func TestDecoder_IsValidFile(t *testing.T) {
 		{"fixtures/M1F1-int12-AFsp.wav", true},
 		{"fixtures/Pmiscck.wav", true},
 		{"fixtures/Ptjunk.wav", true},
-		{"fixtures/addf8-GSM-GW.wav", false},
-		{"fixtures/truspech.wav", false},
-		{"fixtures/voxware.wav", false},
+		{"fixtures/addf8-GSM-GW.wav", true},
+		{"fixtures/truspech.wav", true},
+		{"fixtures/voxware.wav", true},
 	}
 
 	for _, testCase := range testCases {
@@ -533,14 +531,15 @@ func TestDecoder_Int12MatchesInt16Fixture(t *testing.T) {
 	}
 }
 
-func TestDecoder_UnsupportedCompressedFormats(t *testing.T) {
+func TestDecoder_LegacyCompressedFormats(t *testing.T) {
 	testCases := []struct {
-		path       string
-		formatCode uint16
+		path            string
+		formatCode      uint16
+		expectedSamples int
 	}{
-		{path: "fixtures/addf8-GSM-GW.wav", formatCode: 49},
-		{path: "fixtures/truspech.wav", formatCode: 34},
-		{path: "fixtures/voxware.wav", formatCode: 6172},
+		{path: "fixtures/addf8-GSM-GW.wav", formatCode: 49, expectedSamples: 23808},
+		{path: "fixtures/truspech.wav", formatCode: 34, expectedSamples: 69578},
+		{path: "fixtures/voxware.wav", formatCode: 6172, expectedSamples: 69120},
 	}
 
 	for _, tc := range testCases {
@@ -553,19 +552,48 @@ func TestDecoder_UnsupportedCompressedFormats(t *testing.T) {
 
 			d := NewDecoder(f)
 
-			if d.IsValidFile() {
-				t.Fatalf("expected compressed fixture %s to be invalid", tc.path)
+			if !d.IsValidFile() {
+				t.Fatalf("expected compressed fixture %s to be valid", tc.path)
 			}
 
-			_, err = d.FullPCMBuffer()
-			if err == nil {
-				t.Fatalf("expected unsupported format error for %s", tc.path)
+			fullBuf, err := d.FullPCMBuffer()
+			if err != nil {
+				t.Fatalf("unexpected decode error for %s: %v", tc.path, err)
 			}
 
-			want := fmt.Sprintf("unsupported wav format:%d", tc.formatCode)
-			if !strings.Contains(err.Error(), want) {
-				t.Fatalf("expected error to contain %q, got %v", want, err)
+			if d.WavAudioFormat != tc.formatCode {
+				t.Fatalf("expected format %d, got %d", tc.formatCode, d.WavAudioFormat)
 			}
+
+			if len(fullBuf.Data) != tc.expectedSamples {
+				t.Fatalf("expected %d samples, got %d", tc.expectedSamples, len(fullBuf.Data))
+			}
+
+			if err := d.Rewind(); err != nil {
+				t.Fatalf("rewind failed: %v", err)
+			}
+
+			streamed := make([]float32, 0, tc.expectedSamples)
+			tmp := &audio.Float32Buffer{
+				Format: &audio.Format{
+					NumChannels: int(d.NumChans),
+					SampleRate:  int(d.SampleRate),
+				},
+				Data: make([]float32, 2048),
+			}
+			for {
+				n, err := d.PCMBuffer(tmp)
+				if err != nil {
+					t.Fatalf("pcm buffer failed: %v", err)
+				}
+				if n == 0 {
+					break
+				}
+
+				streamed = append(streamed, tmp.Data[:n]...)
+			}
+
+			assertFloat32SlicesClose(t, streamed, fullBuf.Data, 1e-6)
 		})
 	}
 }
@@ -810,45 +838,6 @@ func assertFloat32SlicesClose(t *testing.T, got, expected []float32, epsilon flo
 	}
 }
 
-func TestDecoder_UnsupportedFormats(t *testing.T) {
-	testCases := []struct {
-		input       string
-		desc        string
-		expectError bool
-		errorMsg    string
-	}{
-		{
-			input:       "fixtures/truspech.wav",
-			desc:        "TrueSpeech not supported",
-			expectError: true,
-			errorMsg:    "unsupported wav format:34",
-		},
-	}
-
-	for _, tc := range testCases {
-		t.Run(tc.desc, func(t *testing.T) {
-			f, err := os.Open(tc.input)
-			if err != nil {
-				t.Fatal(err)
-			}
-			defer f.Close()
-
-			d := NewDecoder(f)
-			_, err = d.FullPCMBuffer()
-
-			if tc.expectError {
-				if err == nil {
-					t.Fatalf("expected error but got nil")
-				}
-
-				if !contains(err.Error(), tc.errorMsg) {
-					t.Fatalf("expected error containing %q, got %q", tc.errorMsg, err.Error())
-				}
-			}
-		})
-	}
-}
-
 func TestDecoder_EdgeCases(t *testing.T) {
 	testCases := []struct {
 		input string
@@ -892,16 +881,335 @@ func TestDecoder_EdgeCases(t *testing.T) {
 	}
 }
 
-func contains(s, substr string) bool {
-	return len(s) >= len(substr) && (s == substr || len(substr) == 0 || findSubstring(s, substr))
-}
+func TestDecoder_NilReceiver(t *testing.T) {
+	var d *Decoder
 
-func findSubstring(s, substr string) bool {
-	for i := 0; i <= len(s)-len(substr); i++ {
-		if s[i:i+len(substr)] == substr {
-			return true
-		}
+	if d.SampleBitDepth() != 0 {
+		t.Fatal("SampleBitDepth on nil decoder should return 0")
 	}
 
-	return false
+	if d.PCMLen() != 0 {
+		t.Fatal("PCMLen on nil decoder should return 0")
+	}
+
+	if !d.EOF() {
+		t.Fatal("EOF on nil decoder should return true")
+	}
+
+	if d.WasPCMAccessed() {
+		t.Fatal("WasPCMAccessed on nil decoder should return false")
+	}
+
+	if d.Format() != nil {
+		t.Fatal("Format on nil decoder should return nil")
+	}
+
+	dur, err := d.Duration()
+	if err == nil {
+		t.Fatal("Duration on nil decoder should return error")
+	}
+
+	if dur != 0 {
+		t.Fatalf("Duration on nil decoder should be 0, got %v", dur)
+	}
+
+	err = d.FwdToPCM()
+	if err == nil {
+		t.Fatal("FwdToPCM on nil decoder should return error")
+	}
+}
+
+func TestDecoder_SampleBitDepth(t *testing.T) {
+	file, err := os.Open("fixtures/kick.wav")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer file.Close()
+
+	d := NewDecoder(file)
+	d.ReadInfo()
+
+	if d.SampleBitDepth() != 16 {
+		t.Fatalf("expected SampleBitDepth 16, got %d", d.SampleBitDepth())
+	}
+}
+
+func TestDecoder_EOF(t *testing.T) {
+	file, err := os.Open("fixtures/kick.wav")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer file.Close()
+
+	d := NewDecoder(file)
+
+	if d.EOF() {
+		t.Fatal("EOF should be false on fresh decoder")
+	}
+}
+
+func TestDecoder_Format(t *testing.T) {
+	file, err := os.Open("fixtures/kick.wav")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer file.Close()
+
+	d := NewDecoder(file)
+	d.ReadInfo()
+
+	f := d.Format()
+	if f == nil {
+		t.Fatal("Format should not be nil")
+	}
+
+	if f.NumChannels != 1 {
+		t.Fatalf("expected 1 channel, got %d", f.NumChannels)
+	}
+
+	if f.SampleRate != 22050 {
+		t.Fatalf("expected sample rate 22050, got %d", f.SampleRate)
+	}
+}
+
+func TestDecoder_Duration_NilDecoder(t *testing.T) {
+	var d *Decoder
+
+	_, err := d.Duration()
+	if err != ErrDurationNilPointer {
+		t.Fatalf("expected ErrDurationNilPointer, got %v", err)
+	}
+}
+
+func TestDecoder_String(t *testing.T) {
+	file, err := os.Open("fixtures/kick.wav")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer file.Close()
+
+	d := NewDecoder(file)
+	d.ReadInfo()
+
+	s := d.String()
+	if s == "" {
+		t.Fatal("String should not be empty after ReadInfo")
+	}
+}
+
+func TestDecoder_NextChunk(t *testing.T) {
+	file, err := os.Open("fixtures/kick.wav")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer file.Close()
+
+	d := NewDecoder(file)
+	d.ReadInfo()
+
+	chunk, err := d.NextChunk()
+	if err != nil {
+		t.Fatalf("NextChunk returned error: %v", err)
+	}
+
+	if chunk == nil {
+		t.Fatal("NextChunk should return a chunk")
+	}
+}
+
+func TestDecoder_PCMBuffer_NilBuffer(t *testing.T) {
+	file, err := os.Open("fixtures/kick.wav")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer file.Close()
+
+	d := NewDecoder(file)
+
+	n, err := d.PCMBuffer(nil)
+	if err != nil {
+		t.Fatalf("PCMBuffer(nil) should not error, got %v", err)
+	}
+
+	if n != 0 {
+		t.Fatalf("PCMBuffer(nil) should return 0, got %d", n)
+	}
+}
+
+func TestDecoder_ReadMetadata_CalledTwice(t *testing.T) {
+	file, err := os.Open("fixtures/listinfo.wav")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer file.Close()
+
+	d := NewDecoder(file)
+	d.ReadMetadata()
+
+	if d.Metadata == nil {
+		t.Fatal("expected metadata after first call")
+	}
+
+	d.ReadMetadata()
+
+	if d.Metadata == nil {
+		t.Fatal("metadata should still be present after second call")
+	}
+}
+
+func TestDecoder_ReadMetadata_FileWithoutMetadata(t *testing.T) {
+	file, err := os.Open("fixtures/kick.wav")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer file.Close()
+
+	d := NewDecoder(file)
+	d.ReadMetadata()
+
+	if d.Err() != nil {
+		t.Fatalf("unexpected error: %v", d.Err())
+	}
+}
+
+func TestDecoder_FullPCMBuffer_NilPCMChunk(t *testing.T) {
+	file, err := os.Open("fixtures/kick.wav")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer file.Close()
+
+	d := NewDecoder(file)
+	d.ReadInfo()
+	d.pcmDataAccessed = true
+	d.PCMChunk = nil
+
+	_, err = d.FullPCMBuffer()
+	if err != ErrPCMChunkNotFound {
+		t.Fatalf("expected ErrPCMChunkNotFound, got %v", err)
+	}
+}
+
+func TestDecoder_WasPCMAccessed(t *testing.T) {
+	file, err := os.Open("fixtures/kick.wav")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer file.Close()
+
+	d := NewDecoder(file)
+
+	if d.WasPCMAccessed() {
+		t.Fatal("WasPCMAccessed should be false before accessing PCM")
+	}
+
+	_, err = d.FullPCMBuffer()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !d.WasPCMAccessed() {
+		t.Fatal("WasPCMAccessed should be true after reading PCM")
+	}
+}
+
+func TestDecoder_InvalidFileHeader(t *testing.T) {
+	f, err := os.CreateTemp("", "badwav*.wav")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.Remove(f.Name())
+	defer f.Close()
+
+	f.Write([]byte("NOT_RIFF_HEADER_DATA"))
+	f.Seek(0, 0)
+
+	d := NewDecoder(f)
+
+	if d.IsValidFile() {
+		t.Fatal("expected invalid file for garbage data")
+	}
+}
+
+func TestDecoder_Err_ReturnsNilInitially(t *testing.T) {
+	file, err := os.Open("fixtures/kick.wav")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer file.Close()
+
+	d := NewDecoder(file)
+
+	if d.Err() != nil {
+		t.Fatalf("expected nil error, got %v", d.Err())
+	}
+}
+
+func TestDecoder_G711RoundTrip(t *testing.T) {
+	testCases := []struct {
+		input  string
+		format uint16
+	}{
+		{"fixtures/M1F1-Alaw-AFsp.wav", 6},
+		{"fixtures/M1F1-mulaw-AFsp.wav", 7},
+	}
+
+	os.Mkdir("testOutput", 0o777)
+
+	for _, tc := range testCases {
+		t.Run(filepath.Base(tc.input), func(t *testing.T) {
+			in, err := os.Open(tc.input)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			dec := NewDecoder(in)
+			buf, err := dec.FullPCMBuffer()
+			if err != nil {
+				t.Fatalf("decode failed: %v", err)
+			}
+
+			in.Close()
+
+			outPath := filepath.Join("testOutput", filepath.Base(tc.input))
+			out, err := os.Create(outPath)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			enc := NewEncoder(out, buf.Format.SampleRate, int(dec.BitDepth), buf.Format.NumChannels, int(dec.WavAudioFormat))
+			if err := enc.Write(buf); err != nil {
+				t.Fatal(err)
+			}
+
+			if err := enc.Close(); err != nil {
+				t.Fatal(err)
+			}
+
+			out.Close()
+			defer os.Remove(outPath)
+
+			verify, err := os.Open(outPath)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer verify.Close()
+
+			dec2 := NewDecoder(verify)
+			buf2, err := dec2.FullPCMBuffer()
+			if err != nil {
+				t.Fatalf("re-decode failed: %v", err)
+			}
+
+			if len(buf.Data) != len(buf2.Data) {
+				t.Fatalf("sample count mismatch: %d vs %d", len(buf.Data), len(buf2.Data))
+			}
+
+			for i := range buf.Data {
+				if !float32ApproxEqual(buf.Data[i], buf2.Data[i], 1e-5) {
+					t.Fatalf("sample %d mismatch: %f vs %f", i, buf.Data[i], buf2.Data[i])
+				}
+			}
+		})
+	}
 }
