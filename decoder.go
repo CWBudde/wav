@@ -24,6 +24,10 @@ var (
 	CIDCue = [4]byte{'c', 'u', 'e', 0x20}
 	// CIDFact is the chunk ID for the fact chunk.
 	CIDFact = [4]byte{'f', 'a', 'c', 't'}
+	// CIDBext is the chunk ID for the broadcast extension chunk.
+	CIDBext = [4]byte{'b', 'e', 'x', 't'}
+	// CIDCart is the chunk ID for the cart chunk.
+	CIDCart = [4]byte{'c', 'a', 'r', 't'}
 
 	// ErrPCMDataNotFound is returned when PCM data chunk is not found.
 	ErrPCMDataNotFound = errors.New("PCM data not found")
@@ -187,6 +191,7 @@ func (d *Decoder) ReadMetadata() {
 	if d.Err() != nil || d.Metadata != nil {
 		return
 	}
+
 	d.UnknownChunks = nil
 	d.unknownChunkOrder = 0
 
@@ -194,23 +199,29 @@ func (d *Decoder) ReadMetadata() {
 		chunk *riff.Chunk
 		err   error
 	)
+
 	seenData := d.PCMChunk != nil
 	for err == nil {
 		chunk, err = d.NextChunk()
 		if err != nil {
 			break
 		}
+
 		d.unknownChunkOrder++
 
 		switch chunk.ID {
 		case riff.DataFormatID:
 			seenData = true
+
 			chunk.Drain()
 		case CIDFact:
 			var sampleCount uint32
-			if readErr := chunk.ReadLE(&sampleCount); readErr == nil {
+
+			readErr := chunk.ReadLE(&sampleCount)
+			if readErr == nil {
 				d.CompressedSamples = sampleCount
 			}
+
 			chunk.Drain()
 		case CIDList:
 			err = DecodeListChunk(d, chunk)
@@ -218,11 +229,6 @@ func (d *Decoder) ReadMetadata() {
 				if !errors.Is(err, io.EOF) {
 					d.err = err
 				}
-			}
-
-			if d.Metadata != nil && d.Metadata.SamplerInfo != nil {
-				// we got everything we were looking for
-				break
 			}
 		case CIDSmpl:
 			err = DecodeSamplerChunk(d, chunk)
@@ -233,6 +239,20 @@ func (d *Decoder) ReadMetadata() {
 			}
 		case CIDCue:
 			err = DecodeCueChunk(d, chunk)
+			if err != nil {
+				if !errors.Is(err, io.EOF) {
+					d.err = err
+				}
+			}
+		case CIDBext:
+			err = DecodeBroadcastChunk(d, chunk)
+			if err != nil {
+				if !errors.Is(err, io.EOF) {
+					d.err = err
+				}
+			}
+		case CIDCart:
+			err = DecodeCartChunk(d, chunk)
 			if err != nil {
 				if !errors.Is(err, io.EOF) {
 					d.err = err
@@ -272,10 +292,14 @@ func (d *Decoder) FwdToPCM() error {
 
 		if chunk.ID == CIDFact {
 			var sampleCount uint32
-			if err := chunk.ReadLE(&sampleCount); err == nil {
+
+			err := chunk.ReadLE(&sampleCount)
+			if err == nil {
 				d.CompressedSamples = sampleCount
 			}
+
 			chunk.Drain()
+
 			continue
 		}
 
@@ -286,9 +310,22 @@ func (d *Decoder) FwdToPCM() error {
 
 		if chunk.ID == CIDSmpl {
 			DecodeSamplerChunk(d, chunk)
+			continue
 		}
+
 		if chunk.ID == CIDCue {
 			DecodeCueChunk(d, chunk)
+			continue
+		}
+
+		if chunk.ID == CIDBext {
+			DecodeBroadcastChunk(d, chunk)
+			continue
+		}
+
+		if chunk.ID == CIDCart {
+			DecodeCartChunk(d, chunk)
+			continue
 		}
 
 		chunk.Drain()
@@ -334,6 +371,7 @@ func (d *Decoder) FullPCMBuffer() (*audio.Float32Buffer, error) {
 
 	if d.WavAudioFormat == wavFormatGSM610 {
 		dec := newGSMDecoder(int(d.CompressedSamples))
+
 		samples, err := dec.decodeAllBlocks(d.PCMChunk.R, int(d.CompressedSamples))
 		if err != nil {
 			return nil, err
@@ -415,8 +453,10 @@ func (d *Decoder) PCMBuffer(buf *audio.Float32Buffer) (n int, err error) {
 		if d.gsmDec == nil {
 			d.gsmDec = newGSMDecoder(int(d.CompressedSamples))
 		}
+
 		buf.SourceBitDepth = 16
 		buf.Format = format
+
 		n, err := d.gsmDec.decodeToBuffer(d.PCMChunk.R, buf.Data)
 		if err != nil {
 			return n, err
@@ -592,6 +632,7 @@ func (d *Decoder) readHeaders() error {
 			if err != nil {
 				return fmt.Errorf("failed to decode fmt chunk: %w", err)
 			}
+
 			d.FmtChunk = fmtChunk
 
 			d.NumChans = d.parser.NumChannels
@@ -615,6 +656,12 @@ func (d *Decoder) readHeaders() error {
 		} else if chunk.ID == CIDSmpl {
 			DecodeSamplerChunk(d, chunk)
 			rewindBytes += int64(chunk.Size) + 8
+		} else if chunk.ID == CIDBext {
+			DecodeBroadcastChunk(d, chunk)
+			rewindBytes += int64(chunk.Size) + 8
+		} else if chunk.ID == CIDCart {
+			DecodeCartChunk(d, chunk)
+			rewindBytes += int64(chunk.Size) + 8
 		} else {
 			// unexpected chunk order, might be a bext chunk
 			rewindBytes += int64(chunk.Size) + 8
@@ -633,22 +680,33 @@ func decodeWavHeaderChunk(chunk *riff.Chunk, parser *riff.Parser) (*FmtChunk, er
 
 	fmtChunk := &FmtChunk{}
 
-	if err := chunk.ReadLE(&fmtChunk.FormatTag); err != nil {
+	err := chunk.ReadLE(&fmtChunk.FormatTag)
+	if err != nil {
 		return nil, fmt.Errorf("failed to read wav format: %w", err)
 	}
-	if err := chunk.ReadLE(&fmtChunk.NumChannels); err != nil {
+
+	err = chunk.ReadLE(&fmtChunk.NumChannels)
+	if err != nil {
 		return nil, fmt.Errorf("failed to read channels: %w", err)
 	}
-	if err := chunk.ReadLE(&fmtChunk.SampleRate); err != nil {
+
+	err = chunk.ReadLE(&fmtChunk.SampleRate)
+	if err != nil {
 		return nil, fmt.Errorf("failed to read sample rate: %w", err)
 	}
-	if err := chunk.ReadLE(&fmtChunk.AvgBytesPerSec); err != nil {
+
+	err = chunk.ReadLE(&fmtChunk.AvgBytesPerSec)
+	if err != nil {
 		return nil, fmt.Errorf("failed to read avg bytes/sec: %w", err)
 	}
-	if err := chunk.ReadLE(&fmtChunk.BlockAlign); err != nil {
+
+	err = chunk.ReadLE(&fmtChunk.BlockAlign)
+	if err != nil {
 		return nil, fmt.Errorf("failed to read block align: %w", err)
 	}
-	if err := chunk.ReadLE(&fmtChunk.BitsPerSample); err != nil {
+
+	err = chunk.ReadLE(&fmtChunk.BitsPerSample)
+	if err != nil {
 		return nil, fmt.Errorf("failed to read bit depth: %w", err)
 	}
 
@@ -664,12 +722,16 @@ func decodeWavHeaderChunk(chunk *riff.Chunk, parser *riff.Parser) (*FmtChunk, er
 	}
 
 	var extraSize uint16
-	if err := chunk.ReadLE(&extraSize); err != nil {
+
+	err = chunk.ReadLE(&extraSize)
+	if err != nil {
 		return nil, fmt.Errorf("failed to read fmt extension size: %w", err)
 	}
+
 	fmtChunk.ExtraData = make([]byte, extraSize)
 	if extraSize > 0 {
-		if err := chunk.ReadLE(&fmtChunk.ExtraData); err != nil {
+		err := chunk.ReadLE(&fmtChunk.ExtraData)
+		if err != nil {
 			return nil, fmt.Errorf("failed to read fmt extension data: %w", err)
 		}
 	}
@@ -684,11 +746,14 @@ func decodeWavHeaderChunk(chunk *riff.Chunk, parser *riff.Parser) (*FmtChunk, er
 	ext.ValidBitsPerSample = binary.LittleEndian.Uint16(fmtChunk.ExtraData[0:2])
 	ext.ChannelMask = binary.LittleEndian.Uint32(fmtChunk.ExtraData[2:6])
 	copy(ext.SubFormat[:], fmtChunk.ExtraData[6:22])
+
 	if len(fmtChunk.ExtraData) > 22 {
 		ext.ExtraData = append(ext.ExtraData, fmtChunk.ExtraData[22:]...)
 	}
+
 	fmtChunk.Extensible = ext
 	parser.WavAudioFormat = fmtChunk.EffectiveFormatTag()
+
 	chunk.Drain()
 
 	return fmtChunk, nil
@@ -705,6 +770,7 @@ func (d *Decoder) captureUnknownChunk(chunk *riff.Chunk, beforeData bool) {
 
 		return
 	}
+
 	chunk.Drain()
 
 	d.UnknownChunks = append(d.UnknownChunks, RawChunk{
@@ -731,6 +797,7 @@ func isUnsupportedCompressedFormat(wavFormat uint16) bool {
 
 func unsupportedCompressedFormatError(wavFormat uint16) error {
 	var name string
+
 	switch wavFormat {
 	case 34:
 		name = "TrueSpeech"
@@ -854,6 +921,7 @@ func sampleDecodeFloat32Func(bitsPerSample int, wavFormat uint16) (func(io.Reade
 	if err != nil {
 		return nil, fmt.Errorf("failed to create int decoder: %w", err)
 	}
+
 	storageBitsPerSample := bytesPerSample(bitsPerSample) * 8
 
 	return func(r io.Reader, buf []byte) (float32, error) {

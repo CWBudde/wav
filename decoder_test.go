@@ -570,6 +570,7 @@ func TestDecoder_UnsupportedCompressedFormats(t *testing.T) {
 			if err := d.Rewind(); err != nil {
 				t.Fatalf("rewind failed: %v", err)
 			}
+
 			buf := &audio.Float32Buffer{
 				Format: &audio.Format{
 					NumChannels: int(d.NumChans),
@@ -577,6 +578,7 @@ func TestDecoder_UnsupportedCompressedFormats(t *testing.T) {
 				},
 				Data: make([]float32, 2048),
 			}
+
 			_, err = d.PCMBuffer(buf)
 			if !errors.Is(err, ErrUnsupportedCompressedFormat) {
 				t.Fatalf("PCMBuffer: expected ErrUnsupportedCompressedFormat, got %v", err)
@@ -851,6 +853,7 @@ func TestDecoder_EdgeCases(t *testing.T) {
 			d := NewDecoder(f)
 			// Should be able to read basic info
 			d.ReadInfo()
+
 			if err := d.Err(); err != nil {
 				t.Fatalf("unexpected error reading info: %v", err)
 			}
@@ -915,6 +918,7 @@ func TestDecoder_FmtChunkExtensible(t *testing.T) {
 
 	d := NewDecoder(file)
 	d.ReadInfo()
+
 	if err := d.Err(); err != nil {
 		t.Fatalf("read info failed: %v", err)
 	}
@@ -922,15 +926,19 @@ func TestDecoder_FmtChunkExtensible(t *testing.T) {
 	if d.FmtChunk == nil {
 		t.Fatal("expected fmt chunk to be populated")
 	}
+
 	if d.FmtChunk.FormatTag != wavFormatExtensible {
 		t.Fatalf("expected extensible format tag, got %d", d.FmtChunk.FormatTag)
 	}
+
 	if d.FmtChunk.Extensible == nil {
 		t.Fatal("expected extensible metadata")
 	}
+
 	if d.FmtChunk.EffectiveFormatTag() != d.WavAudioFormat {
 		t.Fatalf("effective format mismatch, fmt=%d decoder=%d", d.FmtChunk.EffectiveFormatTag(), d.WavAudioFormat)
 	}
+
 	if d.FmtChunk.Extensible.ValidBitsPerSample == 0 {
 		t.Fatal("expected non-zero valid bits")
 	}
@@ -938,6 +946,7 @@ func TestDecoder_FmtChunkExtensible(t *testing.T) {
 
 func TestEncoder_WriteExtensibleFmtChunk(t *testing.T) {
 	outPath := filepath.Join(t.TempDir(), "extensible_fmt.wav")
+
 	out, err := os.Create(outPath)
 	if err != nil {
 		t.Fatal(err)
@@ -959,9 +968,11 @@ func TestEncoder_WriteExtensibleFmtChunk(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("write failed: %v", err)
 	}
+
 	if err := enc.Close(); err != nil {
 		t.Fatalf("close failed: %v", err)
 	}
+
 	if err := out.Close(); err != nil {
 		t.Fatalf("file close failed: %v", err)
 	}
@@ -980,15 +991,19 @@ func TestEncoder_WriteExtensibleFmtChunk(t *testing.T) {
 	if dec.FmtChunk == nil || dec.FmtChunk.Extensible == nil {
 		t.Fatal("expected extensible fmt chunk after decode")
 	}
+
 	if dec.FmtChunk.FormatTag != wavFormatExtensible {
 		t.Fatalf("expected format tag 0xFFFE, got %d", dec.FmtChunk.FormatTag)
 	}
+
 	if dec.WavAudioFormat != wavFormatPCM {
 		t.Fatalf("expected effective PCM format, got %d", dec.WavAudioFormat)
 	}
+
 	if dec.FmtChunk.Extensible.ChannelMask != 0x3 {
 		t.Fatalf("expected channel mask 0x3, got 0x%X", dec.FmtChunk.Extensible.ChannelMask)
 	}
+
 	if dec.FmtChunk.Extensible.ValidBitsPerSample != 16 {
 		t.Fatalf("expected valid bits 16, got %d", dec.FmtChunk.Extensible.ValidBitsPerSample)
 	}
@@ -1002,6 +1017,7 @@ func TestFmtChunkExtensibleRoundTripPreservesFields(t *testing.T) {
 	defer in.Close()
 
 	dec := NewDecoder(in)
+
 	buf, err := dec.FullPCMBuffer()
 	if err != nil {
 		t.Fatalf("decode input failed: %v", err)
@@ -1012,19 +1028,23 @@ func TestFmtChunkExtensibleRoundTripPreservesFields(t *testing.T) {
 	}
 
 	outPath := filepath.Join(t.TempDir(), "roundtrip_extensible.wav")
+
 	out, err := os.Create(outPath)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	enc := NewEncoder(out, buf.Format.SampleRate, int(dec.BitDepth), buf.Format.NumChannels, int(dec.WavAudioFormat))
+
 	enc.FmtChunk = dec.FmtChunk.Clone()
 	if err := enc.Write(buf); err != nil {
 		t.Fatalf("encode failed: %v", err)
 	}
+
 	if err := enc.Close(); err != nil {
 		t.Fatalf("close failed: %v", err)
 	}
+
 	if err := out.Close(); err != nil {
 		t.Fatalf("file close failed: %v", err)
 	}
@@ -1043,18 +1063,23 @@ func TestFmtChunkExtensibleRoundTripPreservesFields(t *testing.T) {
 	if dec2.FmtChunk == nil || dec2.FmtChunk.Extensible == nil {
 		t.Fatal("expected extensible fmt after roundtrip")
 	}
+
 	if dec2.FmtChunk.FormatTag != wavFormatExtensible {
 		t.Fatalf("expected roundtrip extensible format tag, got %d", dec2.FmtChunk.FormatTag)
 	}
+
 	if dec2.WavAudioFormat != dec.WavAudioFormat {
 		t.Fatalf("expected effective format %d, got %d", dec.WavAudioFormat, dec2.WavAudioFormat)
 	}
+
 	if dec2.FmtChunk.Extensible.ValidBitsPerSample != dec.FmtChunk.Extensible.ValidBitsPerSample {
 		t.Fatalf("valid bits changed: expected %d got %d", dec.FmtChunk.Extensible.ValidBitsPerSample, dec2.FmtChunk.Extensible.ValidBitsPerSample)
 	}
+
 	if dec2.FmtChunk.Extensible.ChannelMask != dec.FmtChunk.Extensible.ChannelMask {
 		t.Fatalf("channel mask changed: expected 0x%X got 0x%X", dec.FmtChunk.Extensible.ChannelMask, dec2.FmtChunk.Extensible.ChannelMask)
 	}
+
 	if dec2.FmtChunk.Extensible.SubFormat != dec.FmtChunk.Extensible.SubFormat {
 		t.Fatal("sub format GUID changed on roundtrip")
 	}
@@ -1117,7 +1142,7 @@ func TestDecoder_Duration_NilDecoder(t *testing.T) {
 	var d *Decoder
 
 	_, err := d.Duration()
-	if err != ErrDurationNilPointer {
+	if !errors.Is(err, ErrDurationNilPointer) {
 		t.Fatalf("expected ErrDurationNilPointer, got %v", err)
 	}
 }
@@ -1226,7 +1251,7 @@ func TestDecoder_FullPCMBuffer_NilPCMChunk(t *testing.T) {
 	d.PCMChunk = nil
 
 	_, err = d.FullPCMBuffer()
-	if err != ErrPCMChunkNotFound {
+	if !errors.Is(err, ErrPCMChunkNotFound) {
 		t.Fatalf("expected ErrPCMChunkNotFound, got %v", err)
 	}
 }
@@ -1255,14 +1280,14 @@ func TestDecoder_WasPCMAccessed(t *testing.T) {
 }
 
 func TestDecoder_InvalidFileHeader(t *testing.T) {
-	f, err := os.CreateTemp("", "badwav*.wav")
+	f, err := os.CreateTemp(t.TempDir(), "badwav*.wav")
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer os.Remove(f.Name())
 	defer f.Close()
 
-	f.Write([]byte("NOT_RIFF_HEADER_DATA"))
+	f.WriteString("NOT_RIFF_HEADER_DATA")
 	f.Seek(0, 0)
 
 	d := NewDecoder(f)
@@ -1305,6 +1330,7 @@ func TestDecoder_G711RoundTrip(t *testing.T) {
 			}
 
 			dec := NewDecoder(in)
+
 			buf, err := dec.FullPCMBuffer()
 			if err != nil {
 				t.Fatalf("decode failed: %v", err)
@@ -1313,6 +1339,7 @@ func TestDecoder_G711RoundTrip(t *testing.T) {
 			in.Close()
 
 			outPath := filepath.Join("testOutput", filepath.Base(tc.input))
+
 			out, err := os.Create(outPath)
 			if err != nil {
 				t.Fatal(err)
@@ -1328,6 +1355,7 @@ func TestDecoder_G711RoundTrip(t *testing.T) {
 			}
 
 			out.Close()
+
 			defer os.Remove(outPath)
 
 			verify, err := os.Open(outPath)
@@ -1337,6 +1365,7 @@ func TestDecoder_G711RoundTrip(t *testing.T) {
 			defer verify.Close()
 
 			dec2 := NewDecoder(verify)
+
 			buf2, err := dec2.FullPCMBuffer()
 			if err != nil {
 				t.Fatalf("re-decode failed: %v", err)

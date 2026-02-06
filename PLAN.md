@@ -30,16 +30,19 @@ Current handling parses only part of extensible fields and does not preserve the
 ### Deliverables
 
 1. Introduce explicit `FmtChunk` model in Go with:
+
 - base fields: format tag, channels, sample rate, avg bytes/sec, block align, bits/sample
 - extensible fields: valid bits/sample, channel mask, subformat GUID
 - raw extension bytes (for unknown future-compatible payload)
 
 2. Decoder:
+
 - parse and store all `fmt ` fields (classic + extensible)
 - set effective codec format from subformat when extensible
 - preserve original raw extension bytes
 
 3. Encoder:
+
 - write classic `fmt ` for plain PCM/float cases only when appropriate
 - write extensible `fmt ` when required (non-PCM/float subtype mapping, channel mask, valid bits)
 - preserve/emit known extension values when round-tripping
@@ -70,6 +73,7 @@ Current GSM/TrueSpeech/Voxware path produces pseudo-waveform output and is not t
 Choose one policy and apply consistently:
 
 Option A (preferred): real decode
+
 - Implement true decoders for:
   - GSM 6.10 (format 49)
   - TrueSpeech (format 34)
@@ -77,6 +81,7 @@ Option A (preferred): real decode
 - If fully correct decode for TrueSpeech/Voxware is infeasible, keep explicit unsupported for those with clear errors.
 
 Option B: explicit unsupported (safe interim)
+
 - Remove pseudo decode path.
 - Return deterministic, explicit errors for unsupported compressed formats.
 - Keep sample count/fact parsing utilities for diagnostics only.
@@ -103,16 +108,19 @@ Dropping unknown chunks destroys important metadata and prevents lossless-ish tr
 ### Deliverables
 
 1. Add raw chunk container model:
+
 - chunk ID
 - size
 - data bytes
 - original order index
 
 2. Decoder:
+
 - store all non-core chunks as raw if not fully parsed by typed handlers
 - keep original order relative to core chunks where practical
 
 3. Encoder:
+
 - write preserved unknown chunks back during save
 - maintain word alignment and padding correctness
 
@@ -139,9 +147,11 @@ Cue labels/notes are widely used in DAWs and currently ignored.
 
 1. Parse `LIST` subtype `adtl`.
 2. Support subchunks:
+
 - `labl`
 - `note`
 - `ltxt`
+
 3. Bind entries to cue IDs in metadata model.
 4. Add write support for `adtl` when metadata contains labeled cues.
 
@@ -168,13 +178,16 @@ Interoperability with broadcast and radio workflows depends on these chunks.
 ### Deliverables
 
 1. Add metadata structs for:
+
 - `bext` core fields (description, originator, refs, origination date/time, time refs, version, UMID/reserved as needed)
 - `cart` practical fields used in common workflows
 
 2. Decoder support:
+
 - parse these chunks into metadata model
 
 3. Encoder support:
+
 - optional writing when metadata fields are set
 
 ### Target Files
@@ -200,6 +213,7 @@ Current parser logic is monolithic. A registry-based approach improves extensibi
 ### Deliverables
 
 1. Introduce chunk handler interface:
+
 - `CanHandle(chunkID, listType?)`
 - `Decode(...)`
 - `Encode(...)` (where relevant)
@@ -228,20 +242,24 @@ Current tests are mostly sample-centric. Need compatibility-level guarantees.
 ### Deliverables
 
 1. Add chunk inventory test helper:
+
 - list chunk IDs, sizes, order
 - compare before/after re-encode
 
 2. Golden tests:
+
 - extensible fmt retention
 - unknown chunk retention
 - list/adtl retention
 - bext/cart retention
 
 3. Codec behavior tests:
+
 - supported codecs decode/encode expectations
 - unsupported codecs explicit error messages
 
 4. Streaming parity tests:
+
 - `PCMBuffer` vs `FullPCMBuffer` equivalence for all supported formats
 
 ### Target Files
@@ -266,11 +284,13 @@ As metadata/chunk coverage grows, API should expose data cleanly.
 ### Deliverables
 
 1. Add optional API methods:
+
 - `FormatChunk() *FmtChunk`
 - `RawChunks() []RawChunk`
 - `SetRawChunks(...)`
 
 2. Keep backward compatibility:
+
 - existing `Decoder`/`Encoder` fields and methods continue working
 - introduce additive API only
 
@@ -306,15 +326,19 @@ As metadata/chunk coverage grows, API should expose data cleanly.
 ## Risks and Mitigations
 
 1. Risk: Breaking existing simple workflows with heavy refactor.
+
 - Mitigation: additive changes, keep legacy method behavior, strong regression tests.
 
 2. Risk: Incorrect codec decode for legacy compressed formats.
+
 - Mitigation: prefer explicit unsupported over fake decode; only ship real decoders with known-good vectors.
 
 3. Risk: Chunk order/padding bugs.
+
 - Mitigation: chunk inventory tests + byte-alignment tests.
 
 4. Risk: Metadata field ambiguity (spec variants).
+
 - Mitigation: preserve raw bytes where semantic parse is uncertain.
 
 ---

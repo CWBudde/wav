@@ -152,6 +152,7 @@ func TestRunErrors(t *testing.T) {
 
 	t.Run("invalid wav", func(t *testing.T) {
 		dir := t.TempDir()
+
 		inPath := filepath.Join(dir, "notwav.bin")
 		if err := os.WriteFile(inPath, []byte("not-a-wav"), 0o644); err != nil {
 			t.Fatalf("write file: %v", err)

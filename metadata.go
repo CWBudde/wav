@@ -3,6 +3,10 @@ package wav
 // Metadata represents optional metadata added to the wav file.
 type Metadata struct {
 	SamplerInfo *SamplerInfo
+	// BroadcastExtension stores BWF bext metadata.
+	BroadcastExtension *BroadcastExtension
+	// Cart stores cart chunk metadata used in radio automation workflows.
+	Cart *Cart
 	// Artist of the original subject of the file. For example, Michaelangelo.
 	Artist string
 	// Comments provides general comments about the file or the subject of the
@@ -50,6 +54,44 @@ type Metadata struct {
 	TrackNbr string
 	// CuePoints is a list of cue points in the wav file.
 	CuePoints []*CuePoint
+}
+
+// BroadcastExtension represents metadata stored in the BWF bext chunk.
+type BroadcastExtension struct {
+	Description         string
+	Originator          string
+	OriginatorReference string
+	OriginationDate     string
+	OriginationTime     string
+	TimeReference       uint64
+	Version             uint16
+	UMID                [64]byte
+	Reserved            []byte
+	CodingHistory       string
+}
+
+// Cart represents practical fields from the cart chunk.
+type Cart struct {
+	Version            string
+	Title              string
+	Artist             string
+	CutID              string
+	ClientID           string
+	Category           string
+	Classification     string
+	OutCue             string
+	StartDate          string
+	StartTime          string
+	EndDate            string
+	EndTime            string
+	ProducerAppID      string
+	ProducerAppVersion string
+	UserDef            string
+	LevelReference     int32
+	PostTimer          [8]uint32
+	Reserved           []byte
+	URL                string
+	TagText            string
 }
 
 // SamplerInfo is extra metadata pertinent to a sampler type usage.

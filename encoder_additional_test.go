@@ -11,6 +11,7 @@ import (
 
 func TestNewEncoderFromDecoder_CopiesRoundTripFields(t *testing.T) {
 	outPath := filepath.Join(t.TempDir(), "from_decoder.wav")
+
 	out, err := os.Create(outPath)
 	if err != nil {
 		t.Fatalf("create output: %v", err)
@@ -40,12 +41,15 @@ func TestNewEncoderFromDecoder_CopiesRoundTripFields(t *testing.T) {
 	if enc.SampleRate != int(dec.SampleRate) {
 		t.Fatalf("sample rate mismatch: got %d want %d", enc.SampleRate, dec.SampleRate)
 	}
+
 	if enc.BitDepth != int(dec.BitDepth) {
 		t.Fatalf("bit depth mismatch: got %d want %d", enc.BitDepth, dec.BitDepth)
 	}
+
 	if enc.NumChans != int(dec.NumChans) {
 		t.Fatalf("channels mismatch: got %d want %d", enc.NumChans, dec.NumChans)
 	}
+
 	if enc.WavAudioFormat != int(dec.WavAudioFormat) {
 		t.Fatalf("audio format mismatch: got %d want %d", enc.WavAudioFormat, dec.WavAudioFormat)
 	}
@@ -53,6 +57,7 @@ func TestNewEncoderFromDecoder_CopiesRoundTripFields(t *testing.T) {
 	if enc.FmtChunk == nil || enc.FmtChunk.Extensible == nil {
 		t.Fatal("expected fmt chunk copy with extensible fields")
 	}
+
 	if enc.FmtChunk == dec.FmtChunk {
 		t.Fatal("fmt chunk should be deep-copied")
 	}
@@ -60,9 +65,11 @@ func TestNewEncoderFromDecoder_CopiesRoundTripFields(t *testing.T) {
 	if len(enc.UnknownChunks) != 1 {
 		t.Fatalf("unknown chunk count mismatch: got %d", len(enc.UnknownChunks))
 	}
+
 	if &enc.UnknownChunks[0] == &dec.UnknownChunks[0] {
 		t.Fatal("unknown chunk should be deep-copied")
 	}
+
 	if !strings.EqualFold(string(enc.UnknownChunks[0].ID[:]), "junk") {
 		t.Fatalf("unexpected unknown chunk id: %q", enc.UnknownChunks[0].ID)
 	}
@@ -75,6 +82,7 @@ func TestNewEncoderFromDecoder_CopiesRoundTripFields(t *testing.T) {
 
 func TestEncoderWriteFrameFloat64(t *testing.T) {
 	outPath := filepath.Join(t.TempDir(), "frame_float64.wav")
+
 	out, err := os.Create(outPath)
 	if err != nil {
 		t.Fatalf("create output: %v", err)
@@ -100,6 +108,7 @@ func TestEncoderWriteFrameFloat64(t *testing.T) {
 	defer in.Close()
 
 	dec := NewDecoder(in)
+
 	buf, err := dec.FullPCMBuffer()
 	if err != nil {
 		t.Fatalf("decode PCM buffer: %v", err)
@@ -123,6 +132,7 @@ func TestEncoderWriteFrameErrors(t *testing.T) {
 
 	t.Run("unsupported wav format", func(t *testing.T) {
 		enc := NewEncoder(out, 44100, 16, 1, 999)
+
 		err := enc.WriteFrame(float32(0))
 		if err == nil || !strings.Contains(err.Error(), "unsupported wav format") {
 			t.Fatalf("expected unsupported wav format error, got %v", err)
@@ -131,6 +141,7 @@ func TestEncoderWriteFrameErrors(t *testing.T) {
 
 	t.Run("unsupported bit depth", func(t *testing.T) {
 		enc := NewEncoder(out, 44100, 12, 1, wavFormatPCM)
+
 		err := enc.WriteFrame(float32(0))
 		if err == nil || !strings.Contains(err.Error(), "can't add frames of bit size") {
 			t.Fatalf("expected unsupported bit depth error, got %v", err)
@@ -146,6 +157,7 @@ func TestEncoderWriteNilBuffer(t *testing.T) {
 	defer out.Close()
 
 	enc := NewEncoder(out, 44100, 16, 1, wavFormatPCM)
+
 	err = enc.Write(nil)
 	if err == nil || !strings.Contains(err.Error(), "can't add a nil buffer") {
 		t.Fatalf("expected nil buffer error, got %v", err)
@@ -173,6 +185,7 @@ func TestEncoderWriteIEEEFloatInvalidBitDepth(t *testing.T) {
 
 func TestEncoderWriteIEEEFloat64RoundTrip(t *testing.T) {
 	outPath := filepath.Join(t.TempDir(), "float64.wav")
+
 	out, err := os.Create(outPath)
 	if err != nil {
 		t.Fatalf("create output: %v", err)
@@ -187,9 +200,11 @@ func TestEncoderWriteIEEEFloat64RoundTrip(t *testing.T) {
 	if err := enc.Write(in); err != nil {
 		t.Fatalf("encode failed: %v", err)
 	}
+
 	if err := enc.Close(); err != nil {
 		t.Fatalf("close failed: %v", err)
 	}
+
 	if err := out.Close(); err != nil {
 		t.Fatalf("close output: %v", err)
 	}
@@ -201,6 +216,7 @@ func TestEncoderWriteIEEEFloat64RoundTrip(t *testing.T) {
 	defer f.Close()
 
 	dec := NewDecoder(f)
+
 	buf, err := dec.FullPCMBuffer()
 	if err != nil {
 		t.Fatalf("decode failed: %v", err)
@@ -228,6 +244,7 @@ func TestEncoderWriteIEEEFloat64RoundTrip(t *testing.T) {
 
 func TestEncoderWriteFrameFloat64IEEE64(t *testing.T) {
 	outPath := filepath.Join(t.TempDir(), "frame_float64_ieee.wav")
+
 	out, err := os.Create(outPath)
 	if err != nil {
 		t.Fatalf("create output: %v", err)
@@ -253,6 +270,7 @@ func TestEncoderWriteFrameFloat64IEEE64(t *testing.T) {
 	defer in.Close()
 
 	dec := NewDecoder(in)
+
 	buf, err := dec.FullPCMBuffer()
 	if err != nil {
 		t.Fatalf("decode PCM buffer: %v", err)
@@ -283,6 +301,7 @@ func TestEncoderWriteG711RoundTrip(t *testing.T) {
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
 			outPath := filepath.Join(t.TempDir(), testCase.name+".wav")
+
 			out, err := os.Create(outPath)
 			if err != nil {
 				t.Fatalf("create output: %v", err)
@@ -297,9 +316,11 @@ func TestEncoderWriteG711RoundTrip(t *testing.T) {
 			if err := enc.Write(in); err != nil {
 				t.Fatalf("encode failed: %v", err)
 			}
+
 			if err := enc.Close(); err != nil {
 				t.Fatalf("close failed: %v", err)
 			}
+
 			if err := out.Close(); err != nil {
 				t.Fatalf("close output: %v", err)
 			}
@@ -311,6 +332,7 @@ func TestEncoderWriteG711RoundTrip(t *testing.T) {
 			defer f.Close()
 
 			dec := NewDecoder(f)
+
 			buf, err := dec.FullPCMBuffer()
 			if err != nil {
 				t.Fatalf("decode failed: %v", err)

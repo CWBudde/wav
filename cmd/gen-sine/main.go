@@ -11,7 +11,8 @@ import (
 )
 
 func main() {
-	if err := run(os.Args[1:]); err != nil {
+	err := run(os.Args[1:])
+	if err != nil {
 		log.Fatal(err)
 	}
 }
@@ -42,8 +43,11 @@ func run(args []string) error {
 
 	for i := range numSamples {
 		fv := math.Sin(float64(i) / sampleRate * *frequency * 2 * math.Pi)
+
 		v := float32(fv)
-		if err := wavOut.WriteFrame(v); err != nil {
+
+		err := wavOut.WriteFrame(v)
+		if err != nil {
 			return err
 		}
 	}

@@ -9,6 +9,7 @@ import (
 
 func TestRunRequiresPath(t *testing.T) {
 	var out bytes.Buffer
+
 	err := run(nil, &out)
 	if err == nil {
 		t.Fatalf("expected error without input path")
@@ -21,6 +22,7 @@ func TestRunRequiresPath(t *testing.T) {
 
 func TestRunPrintsMetadataWithoutPanic(t *testing.T) {
 	var outBuf bytes.Buffer
+
 	err := run([]string{"../../fixtures/listinfo.wav"}, &outBuf)
 	if err != nil {
 		t.Fatalf("run failed: %v", err)
@@ -44,6 +46,7 @@ func TestRunPrintsMetadataWithoutPanic(t *testing.T) {
 
 func TestRunNoMetadata(t *testing.T) {
 	var outBuf bytes.Buffer
+
 	err := run([]string{"../../fixtures/kick.wav"}, &outBuf)
 	if err != nil {
 		t.Fatalf("run failed: %v", err)
@@ -57,6 +60,7 @@ func TestRunNoMetadata(t *testing.T) {
 
 func TestRunInvalidPath(t *testing.T) {
 	var outBuf bytes.Buffer
+
 	err := run([]string{"/nonexistent/path.wav"}, &outBuf)
 	if err == nil {
 		t.Fatal("expected error for invalid path")
@@ -65,6 +69,7 @@ func TestRunInvalidPath(t *testing.T) {
 
 func TestRunPrintsAllMetadataFields(t *testing.T) {
 	var outBuf bytes.Buffer
+
 	err := run([]string{"../../fixtures/listinfo.wav"}, &outBuf)
 	if err != nil {
 		t.Fatalf("run failed: %v", err)

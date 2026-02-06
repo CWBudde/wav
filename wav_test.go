@@ -72,6 +72,7 @@ func TestSampleDuration(t *testing.T) {
 
 func TestBytesNumFromDuration(t *testing.T) {
 	dur := time.Second
+
 	got := bytesNumFromDuration(dur, 44100, 16)
 	if got <= 0 {
 		t.Fatalf("bytesNumFromDuration(1s, 44100, 16)=%d, want positive", got)
@@ -86,6 +87,7 @@ func TestBytesNumFromDuration(t *testing.T) {
 
 func TestSamplesNumFromDuration(t *testing.T) {
 	dur := time.Second
+
 	got := samplesNumFromDuration(dur, 48000)
 	if got != 48000 {
 		t.Fatalf("samplesNumFromDuration(1s, 48000)=%d, want 48000", got)

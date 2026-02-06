@@ -42,6 +42,7 @@ func decodeALawSample(sample byte) int16 {
 	mantissa := value & 0x0F
 
 	decoded := int(mantissa) << 4
+
 	switch exponent {
 	case 0:
 		decoded += 8
@@ -80,6 +81,7 @@ func encodeMuLawSample(pcm int16) byte {
 	}
 
 	encoded := byte(segment<<4) | byte((value>>(segment+1))&0x0F)
+
 	return encoded ^ mask
 }
 

@@ -47,6 +47,7 @@ var (
 
 func run(args []string, currentUser func() (*user.User, error), out io.Writer) error {
 	fs := flag.NewFlagSet("wavtoaiff", flag.ContinueOnError)
+
 	pathFlag := fs.String("path", "", "The path to the wav file to convert to aiff")
 	if err := fs.Parse(args); err != nil {
 		return err

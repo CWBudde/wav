@@ -211,6 +211,7 @@ func TestEncoder_WriteFrame_PCM(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			outPath := path.Join("testOutput", "writeframe_"+tt.name+".wav")
+
 			f, err := os.Create(outPath)
 			if err != nil {
 				t.Fatal(err)
@@ -219,7 +220,8 @@ func TestEncoder_WriteFrame_PCM(t *testing.T) {
 
 			enc := NewEncoder(f, 44100, tt.bitDepth, 1, tt.format)
 			for range 100 {
-				if err := enc.WriteFrame(tt.value); err != nil {
+				err := enc.WriteFrame(tt.value)
+				if err != nil {
 					t.Fatalf("WriteFrame failed: %v", err)
 				}
 			}
@@ -261,6 +263,7 @@ func TestEncoder_WriteFrame_Float(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			outPath := path.Join("testOutput", "writeframe_float_"+tt.name+".wav")
+
 			f, err := os.Create(outPath)
 			if err != nil {
 				t.Fatal(err)
@@ -269,7 +272,8 @@ func TestEncoder_WriteFrame_Float(t *testing.T) {
 
 			enc := NewEncoder(f, 44100, tt.bitDepth, 1, wavFormatIEEEFloat)
 			for range 100 {
-				if err := enc.WriteFrame(tt.value); err != nil {
+				err := enc.WriteFrame(tt.value)
+				if err != nil {
 					t.Fatalf("WriteFrame failed: %v", err)
 				}
 			}
@@ -308,6 +312,7 @@ func TestEncoder_WriteFrame_G711(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			outPath := path.Join("testOutput", "writeframe_"+tt.name+".wav")
+
 			f, err := os.Create(outPath)
 			if err != nil {
 				t.Fatal(err)
@@ -316,7 +321,8 @@ func TestEncoder_WriteFrame_G711(t *testing.T) {
 
 			enc := NewEncoder(f, 8000, 8, 1, tt.format)
 			for range 100 {
-				if err := enc.WriteFrame(float32(0.3)); err != nil {
+				err := enc.WriteFrame(float32(0.3))
+				if err != nil {
 					t.Fatalf("WriteFrame failed: %v", err)
 				}
 			}
@@ -343,7 +349,9 @@ func TestEncoder_WriteFrame_G711(t *testing.T) {
 
 func TestEncoder_WriteFrame_DefaultType(t *testing.T) {
 	os.Mkdir("testOutput", 0o777)
+
 	outPath := path.Join("testOutput", "writeframe_int16.wav")
+
 	f, err := os.Create(outPath)
 	if err != nil {
 		t.Fatal(err)
@@ -365,20 +373,25 @@ func TestEncoder_WriteFrame_DefaultType(t *testing.T) {
 
 func TestEncoder_Close_NilEncoder(t *testing.T) {
 	var e *Encoder
-	if err := e.Close(); err != nil {
+
+	err := e.Close()
+	if err != nil {
 		t.Fatalf("Close on nil encoder should return nil, got %v", err)
 	}
 }
 
 func TestEncoder_Close_NilWriter(t *testing.T) {
 	e := &Encoder{}
-	if err := e.Close(); err != nil {
+
+	err := e.Close()
+	if err != nil {
 		t.Fatalf("Close with nil writer should return nil, got %v", err)
 	}
 }
 
 func TestEncoder_AddBuffer_Nil(t *testing.T) {
 	var buf bytes.Buffer
+
 	e := NewEncoder(nopWriteSeeker{&buf}, 44100, 16, 1, wavFormatPCM)
 
 	err := e.addBuffer(nil)
@@ -389,7 +402,9 @@ func TestEncoder_AddBuffer_Nil(t *testing.T) {
 
 func TestEncoder_Write_MultipleBuffers(t *testing.T) {
 	os.Mkdir("testOutput", 0o777)
+
 	outPath := path.Join("testOutput", "multi_write.wav")
+
 	f, err := os.Create(outPath)
 	if err != nil {
 		t.Fatal(err)
@@ -407,7 +422,8 @@ func TestEncoder_Write_MultipleBuffers(t *testing.T) {
 			SourceBitDepth: 16,
 		}
 
-		if err := enc.Write(buf); err != nil {
+		err := enc.Write(buf)
+		if err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -425,6 +441,7 @@ func TestEncoder_Write_MultipleBuffers(t *testing.T) {
 	defer verify.Close()
 
 	dec := NewDecoder(verify)
+
 	pcm, err := dec.FullPCMBuffer()
 	if err != nil {
 		t.Fatal(err)

@@ -71,6 +71,7 @@ func TestRunDefaultParams(t *testing.T) {
 	defer f.Close()
 
 	dec := wav.NewDecoder(f)
+
 	buf, err := dec.FullPCMBuffer()
 	if err != nil {
 		t.Fatalf("decode failed: %v", err)

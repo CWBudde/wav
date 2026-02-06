@@ -70,6 +70,7 @@ func NewEncoderFromDecoder(w io.WriteSeeker, d *Decoder) *Encoder {
 	if d.FmtChunk != nil {
 		enc.FmtChunk = d.FmtChunk.Clone()
 	}
+
 	if len(d.UnknownChunks) > 0 {
 		enc.UnknownChunks = make([]RawChunk, len(d.UnknownChunks))
 		for i := range d.UnknownChunks {
@@ -142,7 +143,8 @@ func (e *Encoder) addBuffer(buf *audio.Float32Buffer) error {
 					return fmt.Errorf("unsupported A-law bit depth %d", e.BitDepth)
 				}
 
-				if err := e.buf.WriteByte(encodeALawSample(int16(float32ToPCMInt32(val, 16)))); err != nil {
+				err := e.buf.WriteByte(encodeALawSample(int16(float32ToPCMInt32(val, 16))))
+				if err != nil {
 					return fmt.Errorf("failed to write A-law sample: %w", err)
 				}
 
@@ -154,7 +156,8 @@ func (e *Encoder) addBuffer(buf *audio.Float32Buffer) error {
 					return fmt.Errorf("unsupported mu-law bit depth %d", e.BitDepth)
 				}
 
-				if err := e.buf.WriteByte(encodeMuLawSample(int16(float32ToPCMInt32(val, 16)))); err != nil {
+				err := e.buf.WriteByte(encodeMuLawSample(int16(float32ToPCMInt32(val, 16))))
+				if err != nil {
 					return fmt.Errorf("failed to write mu-law sample: %w", err)
 				}
 
@@ -243,6 +246,7 @@ func (e *Encoder) writeHeader() error {
 	if err != nil {
 		return err
 	}
+
 	return e.writeFmtChunk()
 }
 
@@ -258,9 +262,11 @@ func (e *Encoder) Write(buf *audio.Float32Buffer) error {
 
 	if !e.pcmChunkStarted {
 		if !e.wroteUnknownPre {
-			if err := e.writeUnknownChunks(true); err != nil {
+			err := e.writeUnknownChunks(true)
+			if err != nil {
 				return fmt.Errorf("error encoding pre-data unknown chunks %w", err)
 			}
+
 			e.wroteUnknownPre = true
 		}
 
@@ -292,9 +298,11 @@ func (e *Encoder) WriteFrame(value any) error {
 
 	if !e.pcmChunkStarted {
 		if !e.wroteUnknownPre {
-			if err := e.writeUnknownChunks(true); err != nil {
+			err := e.writeUnknownChunks(true)
+			if err != nil {
 				return fmt.Errorf("error encoding pre-data unknown chunks %w", err)
 			}
+
 			e.wroteUnknownPre = true
 		}
 
@@ -395,6 +403,7 @@ func (e *Encoder) effectiveBlockAlign() int {
 
 func (e *Encoder) buildFmtChunkForWrite() *FmtChunk {
 	blockAlign := e.effectiveBlockAlign()
+
 	chunk := &FmtChunk{
 		FormatTag:      uint16(e.WavAudioFormat),
 		NumChannels:    uint16(e.NumChans),
@@ -426,34 +435,49 @@ func (e *Encoder) writeFmtChunk() error {
 	chunk := e.buildFmtChunkForWrite()
 
 	formatTag := chunk.FormatTag
+
 	needsExtensible := formatTag == wavFormatExtensible && chunk.Extensible != nil
 	if !needsExtensible {
-		if err := e.AddLE(uint32(16)); err != nil {
+		err := e.AddLE(uint32(16))
+		if err != nil {
 			return err
 		}
 	} else {
 		extraLen := 22 + len(chunk.Extensible.ExtraData)
-		if err := e.AddLE(uint32(16 + 2 + extraLen)); err != nil {
+
+		err := e.AddLE(uint32(16 + 2 + extraLen))
+		if err != nil {
 			return err
 		}
 	}
 
-	if err := e.AddLE(formatTag); err != nil {
+	err := e.AddLE(formatTag)
+	if err != nil {
 		return err
 	}
-	if err := e.AddLE(chunk.NumChannels); err != nil {
+
+	err = e.AddLE(chunk.NumChannels)
+	if err != nil {
 		return fmt.Errorf("error encoding the number of channels - %w", err)
 	}
-	if err := e.AddLE(chunk.SampleRate); err != nil {
+
+	err = e.AddLE(chunk.SampleRate)
+	if err != nil {
 		return fmt.Errorf("error encoding the sample rate - %w", err)
 	}
-	if err := e.AddLE(chunk.AvgBytesPerSec); err != nil {
+
+	err = e.AddLE(chunk.AvgBytesPerSec)
+	if err != nil {
 		return fmt.Errorf("error encoding the avg bytes per sec - %w", err)
 	}
-	if err := e.AddLE(chunk.BlockAlign); err != nil {
+
+	err = e.AddLE(chunk.BlockAlign)
+	if err != nil {
 		return err
 	}
-	if err := e.AddLE(chunk.BitsPerSample); err != nil {
+
+	err = e.AddLE(chunk.BitsPerSample)
+	if err != nil {
 		return fmt.Errorf("error encoding bits per sample - %w", err)
 	}
 
@@ -462,21 +486,31 @@ func (e *Encoder) writeFmtChunk() error {
 	}
 
 	extraLen := uint16(22 + len(chunk.Extensible.ExtraData))
-	if err := e.AddLE(extraLen); err != nil {
+
+	err = e.AddLE(extraLen)
+	if err != nil {
 		return fmt.Errorf("error encoding fmt extension length - %w", err)
 	}
-	if err := e.AddLE(chunk.Extensible.ValidBitsPerSample); err != nil {
+
+	err = e.AddLE(chunk.Extensible.ValidBitsPerSample)
+	if err != nil {
 		return fmt.Errorf("error encoding valid bits per sample - %w", err)
 	}
-	if err := e.AddLE(chunk.Extensible.ChannelMask); err != nil {
+
+	err = e.AddLE(chunk.Extensible.ChannelMask)
+	if err != nil {
 		return fmt.Errorf("error encoding channel mask - %w", err)
 	}
-	if err := e.AddLE(chunk.Extensible.SubFormat); err != nil {
+
+	err = e.AddLE(chunk.Extensible.SubFormat)
+	if err != nil {
 		return fmt.Errorf("error encoding sub format - %w", err)
 	}
+
 	if len(chunk.Extensible.ExtraData) > 0 {
 		n, err := e.w.Write(chunk.Extensible.ExtraData)
 		e.WrittenBytes += n
+
 		if err != nil {
 			return fmt.Errorf("error encoding extensible extra data - %w", err)
 		}
@@ -486,7 +520,26 @@ func (e *Encoder) writeFmtChunk() error {
 }
 
 func (e *Encoder) writeMetadata() error {
+	if e == nil || e.Metadata == nil {
+		return nil
+	}
+
+	if e.Metadata.BroadcastExtension != nil {
+		if err := e.writeRawChunk(RawChunk{ID: CIDBext, Data: encodeBroadcastChunk(e.Metadata.BroadcastExtension)}); err != nil {
+			return fmt.Errorf("failed to write the bext chunk: %w", err)
+		}
+	}
+
+	if e.Metadata.Cart != nil {
+		if err := e.writeRawChunk(RawChunk{ID: CIDCart, Data: encodeCartChunk(e.Metadata.Cart)}); err != nil {
+			return fmt.Errorf("failed to write the cart chunk: %w", err)
+		}
+	}
+
 	chunkData := encodeInfoChunk(e)
+	if len(chunkData) == 0 {
+		return nil
+	}
 
 	err := e.AddBE(CIDList)
 	if err != nil {
@@ -503,15 +556,21 @@ func (e *Encoder) writeMetadata() error {
 
 func (e *Encoder) writeRawChunk(chunk RawChunk) error {
 	size := uint32(len(chunk.Data))
-	if err := e.AddBE(chunk.ID); err != nil {
+
+	err := e.AddBE(chunk.ID)
+	if err != nil {
 		return fmt.Errorf("failed to write raw chunk id %q: %w", chunk.ID, err)
 	}
-	if err := e.AddLE(size); err != nil {
+
+	err = e.AddLE(size)
+	if err != nil {
 		return fmt.Errorf("failed to write raw chunk size %q: %w", chunk.ID, err)
 	}
+
 	if len(chunk.Data) > 0 {
 		n, err := e.w.Write(chunk.Data)
 		e.WrittenBytes += n
+
 		if err != nil {
 			return fmt.Errorf("failed to write raw chunk payload %q: %w", chunk.ID, err)
 		}
@@ -520,6 +579,7 @@ func (e *Encoder) writeRawChunk(chunk RawChunk) error {
 	if size%2 == 1 {
 		n, err := e.w.Write([]byte{0})
 		e.WrittenBytes += n
+
 		if err != nil {
 			return fmt.Errorf("failed to write raw chunk padding %q: %w", chunk.ID, err)
 		}
@@ -533,7 +593,9 @@ func (e *Encoder) writeUnknownChunks(beforeData bool) error {
 		if chunk.BeforeData != beforeData {
 			continue
 		}
-		if err := e.writeRawChunk(chunk); err != nil {
+
+		err := e.writeRawChunk(chunk)
+		if err != nil {
 			return err
 		}
 	}
@@ -549,22 +611,27 @@ func (e *Encoder) Close() error {
 	}
 
 	if !e.wroteHeader && (e.Metadata != nil || len(e.UnknownChunks) > 0) {
-		if err := e.writeHeader(); err != nil {
+		err := e.writeHeader()
+		if err != nil {
 			return err
 		}
 	}
 
 	if !e.wroteUnknownPre {
-		if err := e.writeUnknownChunks(true); err != nil {
+		err := e.writeUnknownChunks(true)
+		if err != nil {
 			return fmt.Errorf("failed to write pre-data unknown chunks: %w", err)
 		}
+
 		e.wroteUnknownPre = true
 	}
 
 	if !e.wroteUnknownPost {
-		if err := e.writeUnknownChunks(false); err != nil {
+		err := e.writeUnknownChunks(false)
+		if err != nil {
 			return fmt.Errorf("failed to write post-data unknown chunks: %w", err)
 		}
+
 		e.wroteUnknownPost = true
 	}
 

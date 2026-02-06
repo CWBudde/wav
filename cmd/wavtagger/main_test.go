@@ -27,6 +27,7 @@ func TestTagFileWritesMetadata(t *testing.T) {
 	*flagComments = "Comment"
 	*flagCopyright = "Copyright"
 	*flagGenre = "Genre"
+
 	defer func() {
 		*flagArtist = ""
 		*flagTitleRegexp = ""
@@ -41,6 +42,7 @@ func TestTagFileWritesMetadata(t *testing.T) {
 	}
 
 	outPath := filepath.Join(tmpDir, "wavtagger", "sample_title.wav")
+
 	outFile, err := os.Open(outPath)
 	if err != nil {
 		t.Fatalf("open tagged file: %v", err)
@@ -49,6 +51,7 @@ func TestTagFileWritesMetadata(t *testing.T) {
 
 	dec := wav.NewDecoder(outFile)
 	dec.ReadMetadata()
+
 	if err := dec.Err(); err != nil {
 		t.Fatalf("decoder error: %v", err)
 	}
@@ -104,6 +107,7 @@ func TestTagFileWithDirectTitle(t *testing.T) {
 	*flagComments = ""
 	*flagCopyright = ""
 	*flagGenre = ""
+
 	defer func() {
 		*flagTitle = ""
 	}()
@@ -113,6 +117,7 @@ func TestTagFileWithDirectTitle(t *testing.T) {
 	}
 
 	outPath := filepath.Join(tmpDir, "wavtagger", "test.wav")
+
 	outFile, err := os.Open(outPath)
 	if err != nil {
 		t.Fatalf("open tagged file: %v", err)
@@ -121,6 +126,7 @@ func TestTagFileWithDirectTitle(t *testing.T) {
 
 	dec := wav.NewDecoder(outFile)
 	dec.ReadMetadata()
+
 	if err := dec.Err(); err != nil {
 		t.Fatalf("decoder error: %v", err)
 	}
@@ -153,6 +159,7 @@ func TestTagFileRegexpNoMatch(t *testing.T) {
 	*flagComments = ""
 	*flagCopyright = ""
 	*flagGenre = ""
+
 	defer func() {
 		*flagTitleRegexp = ""
 	}()
@@ -162,6 +169,7 @@ func TestTagFileRegexpNoMatch(t *testing.T) {
 	}
 
 	outPath := filepath.Join(tmpDir, "wavtagger", "nomatch.wav")
+
 	outFile, err := os.Open(outPath)
 	if err != nil {
 		t.Fatalf("open tagged file: %v", err)

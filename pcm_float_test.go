@@ -4,10 +4,10 @@ import "testing"
 
 func TestClampFloat32(t *testing.T) {
 	tests := []struct {
-		name       string
-		value      float32
-		min, max   float32
-		want       float32
+		name     string
+		value    float32
+		min, max float32
+		want     float32
 	}{
 		{"below min", -2, -1, 1, -1},
 		{"at min", -1, -1, 1, -1},
@@ -29,10 +29,10 @@ func TestClampFloat32(t *testing.T) {
 
 func TestClampFloat64(t *testing.T) {
 	tests := []struct {
-		name       string
-		value      float64
-		min, max   float64
-		want       float64
+		name     string
+		value    float64
+		min, max float64
+		want     float64
 	}{
 		{"below min", -2, -1, 1, -1},
 		{"at min", -1, -1, 1, -1},

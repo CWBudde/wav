@@ -43,6 +43,7 @@ func (f *FmtChunk) Clone() *FmtChunk {
 	}
 
 	out := *f
+
 	out.ExtraData = append([]byte(nil), f.ExtraData...)
 	if f.Extensible != nil {
 		ext := *f.Extensible
