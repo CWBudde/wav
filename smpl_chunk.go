@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"io"
 
 	"github.com/go-audio/riff"
 )
@@ -26,10 +27,11 @@ func DecodeSamplerChunk(d *Decoder, ch *riff.Chunk) error {
 		// read the entire chunk in memory
 		buf := make([]byte, ch.Size)
 
-		var err error
-		if _, err = ch.Read(buf); err != nil {
+		n, err := io.ReadFull(ch, buf)
+		if err != nil && !errors.Is(err, io.EOF) && !errors.Is(err, io.ErrUnexpectedEOF) {
 			return fmt.Errorf("failed to read the smpl chunk - %w", err)
 		}
+		buf = buf[:n]
 
 		if d.Metadata == nil {
 			d.Metadata = &Metadata{}

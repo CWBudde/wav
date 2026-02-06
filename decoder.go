@@ -44,6 +44,7 @@ var (
 type Decoder struct {
 	r      io.ReadSeeker
 	parser *riff.Parser
+	chunks *ChunkRegistry
 
 	NumChans   uint16
 	BitDepth   uint16
@@ -76,6 +77,7 @@ func NewDecoder(r io.ReadSeeker) *Decoder {
 	return &Decoder{
 		r:      r,
 		parser: riff.New(r),
+		chunks: newDefaultChunkRegistry(),
 	}
 }
 
@@ -188,7 +190,7 @@ func (d *Decoder) ReadMetadata() {
 
 	d.ReadInfo()
 
-	if d.Err() != nil || d.Metadata != nil {
+	if d.Err() != nil {
 		return
 	}
 
@@ -209,56 +211,20 @@ func (d *Decoder) ReadMetadata() {
 
 		d.unknownChunkOrder++
 
-		switch chunk.ID {
-		case riff.DataFormatID:
+		if chunk.ID == riff.DataFormatID {
 			seenData = true
 
 			chunk.Drain()
-		case CIDFact:
-			var sampleCount uint32
 
-			readErr := chunk.ReadLE(&sampleCount)
-			if readErr == nil {
-				d.CompressedSamples = sampleCount
-			}
+			continue
+		}
 
-			chunk.Drain()
-		case CIDList:
-			err = DecodeListChunk(d, chunk)
-			if err != nil {
-				if !errors.Is(err, io.EOF) {
-					d.err = err
-				}
-			}
-		case CIDSmpl:
-			err = DecodeSamplerChunk(d, chunk)
-			if err != nil {
-				if !errors.Is(err, io.EOF) {
-					d.err = err
-				}
-			}
-		case CIDCue:
-			err = DecodeCueChunk(d, chunk)
-			if err != nil {
-				if !errors.Is(err, io.EOF) {
-					d.err = err
-				}
-			}
-		case CIDBext:
-			err = DecodeBroadcastChunk(d, chunk)
-			if err != nil {
-				if !errors.Is(err, io.EOF) {
-					d.err = err
-				}
-			}
-		case CIDCart:
-			err = DecodeCartChunk(d, chunk)
-			if err != nil {
-				if !errors.Is(err, io.EOF) {
-					d.err = err
-				}
-			}
-		default:
+		handled, handleErr := d.decodeChunkViaRegistry(chunk)
+		if handleErr != nil && !errors.Is(handleErr, io.EOF) {
+			d.err = handleErr
+		}
+
+		if !handled {
 			d.captureUnknownChunk(chunk, !seenData)
 		}
 	}
@@ -290,41 +256,13 @@ func (d *Decoder) FwdToPCM() error {
 			break
 		}
 
-		if chunk.ID == CIDFact {
-			var sampleCount uint32
-
-			err := chunk.ReadLE(&sampleCount)
-			if err == nil {
-				d.CompressedSamples = sampleCount
-			}
-
-			chunk.Drain()
-
-			continue
+		handled, err := d.decodeChunkViaRegistry(chunk)
+		if err != nil {
+			d.err = err
+			return d.err
 		}
 
-		if chunk.ID == CIDList {
-			DecodeListChunk(d, chunk)
-			continue
-		}
-
-		if chunk.ID == CIDSmpl {
-			DecodeSamplerChunk(d, chunk)
-			continue
-		}
-
-		if chunk.ID == CIDCue {
-			DecodeCueChunk(d, chunk)
-			continue
-		}
-
-		if chunk.ID == CIDBext {
-			DecodeBroadcastChunk(d, chunk)
-			continue
-		}
-
-		if chunk.ID == CIDCart {
-			DecodeCartChunk(d, chunk)
+		if handled {
 			continue
 		}
 
@@ -646,21 +584,7 @@ func (d *Decoder) readHeaders() error {
 			}
 
 			break
-		} else if chunk.ID == CIDList {
-			// The list chunk can be in the header or footer
-			// because so many players don't support that chunk properly
-			// it is recommended to have it at the end of the file.
-			DecodeListChunk(d, chunk)
-			// unexpected chunk order, might be a bext chunk
-			rewindBytes += int64(chunk.Size) + 8
-		} else if chunk.ID == CIDSmpl {
-			DecodeSamplerChunk(d, chunk)
-			rewindBytes += int64(chunk.Size) + 8
-		} else if chunk.ID == CIDBext {
-			DecodeBroadcastChunk(d, chunk)
-			rewindBytes += int64(chunk.Size) + 8
-		} else if chunk.ID == CIDCart {
-			DecodeCartChunk(d, chunk)
+		} else if handled, _ := d.decodeHeaderChunkViaRegistry(chunk); handled {
 			rewindBytes += int64(chunk.Size) + 8
 		} else {
 			// unexpected chunk order, might be a bext chunk
@@ -671,6 +595,31 @@ func (d *Decoder) readHeaders() error {
 	}
 
 	return d.err
+}
+
+func (d *Decoder) decodeChunkViaRegistry(chunk *riff.Chunk) (bool, error) {
+	if d == nil || chunk == nil {
+		return false, nil
+	}
+
+	if d.chunks == nil {
+		d.chunks = newDefaultChunkRegistry()
+	}
+
+	return d.chunks.Decode(d, chunk)
+}
+
+func (d *Decoder) decodeHeaderChunkViaRegistry(chunk *riff.Chunk) (bool, error) {
+	if chunk == nil {
+		return false, nil
+	}
+
+	switch chunk.ID {
+	case CIDList, CIDSmpl, CIDBext, CIDCart:
+		return d.decodeChunkViaRegistry(chunk)
+	default:
+		return false, nil
+	}
 }
 
 func decodeWavHeaderChunk(chunk *riff.Chunk, parser *riff.Parser) (*FmtChunk, error) {

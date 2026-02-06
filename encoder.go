@@ -524,18 +524,8 @@ func (e *Encoder) writeMetadata() error {
 		return nil
 	}
 
-	if e.Metadata.BroadcastExtension != nil {
-		err := e.writeRawChunk(RawChunk{ID: CIDBext, Data: encodeBroadcastChunk(e.Metadata.BroadcastExtension)})
-		if err != nil {
-			return fmt.Errorf("failed to write the bext chunk: %w", err)
-		}
-	}
-
-	if e.Metadata.Cart != nil {
-		err := e.writeRawChunk(RawChunk{ID: CIDCart, Data: encodeCartChunk(e.Metadata.Cart)})
-		if err != nil {
-			return fmt.Errorf("failed to write the cart chunk: %w", err)
-		}
+	if err := e.encodeMetadataViaRegistry(); err != nil {
+		return err
 	}
 
 	chunkData := encodeInfoChunk(e)
@@ -554,6 +544,21 @@ func (e *Encoder) writeMetadata() error {
 	}
 
 	return e.AddBE(chunkData)
+}
+
+func (e *Encoder) encodeMetadataViaRegistry() error {
+	registry := newDefaultChunkRegistry()
+
+	for _, handler := range registry.handlers {
+		err := handler.Encode(e)
+		if err == nil || errors.Is(err, errChunkEncodeNotSupported) {
+			continue
+		}
+
+		return fmt.Errorf("failed to encode metadata chunk with %T: %w", handler, err)
+	}
+
+	return nil
 }
 
 func (e *Encoder) writeRawChunk(chunk RawChunk) error {

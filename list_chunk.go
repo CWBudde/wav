@@ -45,10 +45,11 @@ func DecodeListChunk(d *Decoder, ch *riff.Chunk) error {
 		// read the entire chunk in memory
 		buf := make([]byte, ch.Size)
 
-		var err error
-		if _, err = ch.Read(buf); err != nil {
+		n, err := io.ReadFull(ch, buf)
+		if err != nil && !errors.Is(err, io.EOF) && !errors.Is(err, io.ErrUnexpectedEOF) {
 			return fmt.Errorf("failed to read the LIST chunk - %w", err)
 		}
+		buf = buf[:n]
 
 		reader := bytes.NewReader(buf)
 		// INFO subchunk

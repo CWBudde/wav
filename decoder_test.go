@@ -541,9 +541,9 @@ func TestDecoder_UnsupportedCompressedFormats(t *testing.T) {
 		{path: "fixtures/voxware.wav", formatCode: 6172, formatName: "Voxware"},
 	}
 
-	for _, tc := range testCases {
-		t.Run(filepath.Base(tc.path), func(t *testing.T) {
-			f, err := os.Open(tc.path)
+	for _, testCase := range testCases {
+		t.Run(filepath.Base(testCase.path), func(t *testing.T) {
+			f, err := os.Open(testCase.path)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -553,11 +553,11 @@ func TestDecoder_UnsupportedCompressedFormats(t *testing.T) {
 
 			// File structure is valid WAV even though codec is unsupported
 			if !d.IsValidFile() {
-				t.Fatalf("expected %s to be a valid WAV file", tc.path)
+				t.Fatalf("expected %s to be a valid WAV file", testCase.path)
 			}
 
-			if d.WavAudioFormat != tc.formatCode {
-				t.Fatalf("expected format %d, got %d", tc.formatCode, d.WavAudioFormat)
+			if d.WavAudioFormat != testCase.formatCode {
+				t.Fatalf("expected format %d, got %d", testCase.formatCode, d.WavAudioFormat)
 			}
 
 			// FullPCMBuffer must return ErrUnsupportedCompressedFormat
