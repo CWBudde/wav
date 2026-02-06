@@ -21,14 +21,19 @@ const (
 	bextReservedLen            = 190
 )
 
+var (
+	errNilChunk   = errors.New("can't decode a nil chunk")
+	errNilDecoder = errors.New("nil decoder")
+)
+
 // DecodeBroadcastChunk decodes a bext chunk into decoder metadata.
 func DecodeBroadcastChunk(d *Decoder, ch *riff.Chunk) error {
 	if ch == nil {
-		return errors.New("can't decode a nil chunk")
+		return errNilChunk
 	}
 
 	if d == nil {
-		return errors.New("nil decoder")
+		return errNilDecoder
 	}
 
 	if ch.ID != CIDBext {

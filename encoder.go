@@ -105,9 +105,16 @@ func (e *Encoder) AddBE(src any) error {
 	return nil
 }
 
+var (
+	errNilBuffer        = errors.New("can't add a nil buffer")
+	errAlreadyWroteHdr  = errors.New("already wrote header")
+	errNilEncoder       = errors.New("can't write a nil encoder")
+	errNilWriter        = errors.New("can't write to a nil writer")
+)
+
 func (e *Encoder) addBuffer(buf *audio.Float32Buffer) error {
 	if buf == nil {
-		return errors.New("can't add a nil buffer")
+		return errNilBuffer
 	}
 
 	frameCount := buf.NumFrames()
@@ -210,16 +217,16 @@ func (e *Encoder) addBuffer(buf *audio.Float32Buffer) error {
 
 func (e *Encoder) writeHeader() error {
 	if e.wroteHeader {
-		return errors.New("already wrote header")
+		return errAlreadyWroteHdr
 	}
 
 	e.wroteHeader = true
 	if e == nil {
-		return errors.New("can't write a nil encoder")
+		return errNilEncoder
 	}
 
 	if e.w == nil {
-		return errors.New("can't write to a nil writer")
+		return errNilWriter
 	}
 
 	if e.WrittenBytes > 0 {

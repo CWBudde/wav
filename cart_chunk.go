@@ -30,14 +30,19 @@ const (
 	cartReservedLen           = 276
 )
 
+var (
+	errCartNilChunk   = errors.New("can't decode a nil chunk")
+	errCartNilDecoder = errors.New("nil decoder")
+)
+
 // DecodeCartChunk decodes a cart chunk into decoder metadata.
 func DecodeCartChunk(d *Decoder, ch *riff.Chunk) error {
 	if ch == nil {
-		return errors.New("can't decode a nil chunk")
+		return errCartNilChunk
 	}
 
 	if d == nil {
-		return errors.New("nil decoder")
+		return errCartNilDecoder
 	}
 
 	if ch.ID != CIDCart {

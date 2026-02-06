@@ -13,14 +13,22 @@ import (
 // smpl chunk is documented here:
 // https://sites.google.com/site/musicgapi/technical-documents/wav-file-format#smpl
 
+var (
+	errSmplNilChunk             = errors.New("can't decode a nil chunk")
+	errSmplNilDecoder           = errors.New("nil decoder")
+	errSmplManufacturerReadFail = errors.New("failed to read the smpl Manufacturer")
+	errSmplProductReadFail      = errors.New("failed to read the smpl Product")
+	errSmplCuePointIDReadFail   = errors.New("failed to read the sample loop cue point id")
+)
+
 // DecodeSamplerChunk decodes a smpl chunk and put the data in Decoder.Metadata.SamplerInfo.
 func DecodeSamplerChunk(d *Decoder, ch *riff.Chunk) error {
 	if ch == nil {
-		return errors.New("can't decode a nil chunk")
+		return errSmplNilChunk
 	}
 
 	if d == nil {
-		return errors.New("nil decoder")
+		return errSmplNilDecoder
 	}
 
 	if ch.ID == CIDSmpl {
@@ -44,13 +52,13 @@ func DecodeSamplerChunk(d *Decoder, ch *riff.Chunk) error {
 
 		scratch := make([]byte, 4)
 		if _, err = Reader.Read(scratch); err != nil {
-			return errors.New("failed to read the smpl Manufacturer")
+			return errSmplManufacturerReadFail
 		}
 
 		copy(d.Metadata.SamplerInfo.Manufacturer[:], scratch[:4])
 
 		if _, err = Reader.Read(scratch); err != nil {
-			return errors.New("failed to read the smpl Product")
+			return errSmplProductReadFail
 		}
 
 		copy(d.Metadata.SamplerInfo.Product[:], scratch[:4])
@@ -91,7 +99,7 @@ func DecodeSamplerChunk(d *Decoder, ch *riff.Chunk) error {
 				sl := &SampleLoop{}
 
 				if _, err = Reader.Read(scratch); err != nil {
-					return errors.New("failed to read the sample loop cue point id")
+					return errSmplCuePointIDReadFail
 				}
 
 				copy(sl.CuePointID[:], scratch[:4])

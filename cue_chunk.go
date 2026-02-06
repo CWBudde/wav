@@ -15,6 +15,8 @@ var (
 	ErrCuePointIDNotFound = errors.New("failed to read the cue point ID")
 	// ErrDataChunkIDNotFound is returned when data chunk ID cannot be read.
 	ErrDataChunkIDNotFound = errors.New("failed to read the data chunk id")
+	errCueNilChunk         = errors.New("can't decode a nil chunk")
+	errCueNilDecoder       = errors.New("nil decoder")
 )
 
 // CuePoint defines an offset which marks a noteworthy sections of the audio
@@ -61,11 +63,11 @@ type CuePoint struct {
 // DecodeCueChunk decodes the optional cue chunk and extracts cue points.
 func DecodeCueChunk(d *Decoder, ch *riff.Chunk) error {
 	if ch == nil {
-		return errors.New("can't decode a nil chunk")
+		return errCueNilChunk
 	}
 
 	if d == nil {
-		return errors.New("nil decoder")
+		return errCueNilDecoder
 	}
 
 	if ch.ID == CIDCue {

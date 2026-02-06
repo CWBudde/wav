@@ -29,16 +29,19 @@ var (
 	markerITCH    = [4]byte{'I', 'T', 'C', 'H'}
 	markerIKEY    = [4]byte{'I', 'K', 'E', 'Y'}
 	markerIMED    = [4]byte{'I', 'M', 'E', 'D'}
+
+	errListNilChunk   = errors.New("can't decode a nil chunk")
+	errListNilDecoder = errors.New("nil decoder")
 )
 
 // DecodeListChunk decodes a LIST chunk.
 func DecodeListChunk(d *Decoder, ch *riff.Chunk) error {
 	if ch == nil {
-		return errors.New("can't decode a nil chunk")
+		return errListNilChunk
 	}
 
 	if d == nil {
-		return errors.New("nil decoder")
+		return errListNilDecoder
 	}
 
 	if ch.ID == CIDList {

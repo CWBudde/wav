@@ -43,12 +43,14 @@ func TestDecoderChunkAPIs(t *testing.T) {
 	}
 
 	d.SetRawChunks([]RawChunk{{ID: [4]byte{'x', 't', 'r', 'a'}, Data: []byte{7, 8}}})
+
 	if len(d.UnknownChunks) != 1 || d.UnknownChunks[0].ID != [4]byte{'x', 't', 'r', 'a'} {
 		t.Fatalf("set raw chunks failed: %+v", d.UnknownChunks)
 	}
 
 	in := []RawChunk{{ID: [4]byte{'t', 'e', 's', 't'}, Data: []byte{4, 5, 6}}}
 	d.SetRawChunks(in)
+
 	in[0].Data[0] = 0
 	if d.UnknownChunks[0].Data[0] != 4 {
 		t.Fatal("SetRawChunks should copy input")
@@ -96,12 +98,14 @@ func TestEncoderChunkAPIs(t *testing.T) {
 	}
 
 	e.SetRawChunks([]RawChunk{{ID: [4]byte{'x', 't', 'r', 'a'}, Data: []byte{7, 8}}})
+
 	if len(e.UnknownChunks) != 1 || e.UnknownChunks[0].ID != [4]byte{'x', 't', 'r', 'a'} {
 		t.Fatalf("set raw chunks failed: %+v", e.UnknownChunks)
 	}
 
 	in := []RawChunk{{ID: [4]byte{'t', 'e', 's', 't'}, Data: []byte{4, 5, 6}}}
 	e.SetRawChunks(in)
+
 	in[0].Data[0] = 0
 	if e.UnknownChunks[0].Data[0] != 4 {
 		t.Fatal("SetRawChunks should copy input")
