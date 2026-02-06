@@ -2,6 +2,7 @@ package wav
 
 import (
 	"bytes"
+	"fmt"
 	"os"
 	"path"
 	"testing"
@@ -458,7 +459,12 @@ type nopWriteSeeker struct {
 }
 
 func (n nopWriteSeeker) Write(p []byte) (int, error) {
-	return n.buf.Write(p)
+	written, err := n.buf.Write(p)
+	if err != nil {
+		return written, fmt.Errorf("buffer write failed: %w", err)
+	}
+
+	return written, nil
 }
 
 func (n nopWriteSeeker) Seek(offset int64, whence int) (int64, error) {

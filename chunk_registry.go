@@ -59,7 +59,12 @@ func (r *ChunkRegistry) Decode(dec *Decoder, chnk *riff.Chunk) (bool, error) {
 
 	for _, handler := range r.handlers {
 		if handler.CanHandle(chnk.ID, listType) {
-			return true, handler.Decode(dec, chnk)
+			err := handler.Decode(dec, chnk)
+			if err != nil {
+				return true, fmt.Errorf("chunk handler decode failed: %w", err)
+			}
+
+			return true, nil
 		}
 	}
 

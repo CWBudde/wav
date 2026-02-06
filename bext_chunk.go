@@ -119,11 +119,11 @@ func encodeBroadcastChunk(bext *BroadcastExtension) []byte {
 	timeRefLow := uint32(bext.TimeReference & 0xffffffff)
 	timeRefHigh := uint32((bext.TimeReference >> 32) & 0xffffffff)
 
-	binary.Write(payload, binary.LittleEndian, timeRefLow)
-	binary.Write(payload, binary.LittleEndian, timeRefHigh)
-	binary.Write(payload, binary.LittleEndian, bext.Version)
+	_ = binary.Write(payload, binary.LittleEndian, timeRefLow)
+	_ = binary.Write(payload, binary.LittleEndian, timeRefHigh)
+	_ = binary.Write(payload, binary.LittleEndian, bext.Version)
 
-	payload.Write(bext.UMID[:])
+	_, _ = payload.Write(bext.UMID[:])
 
 	reserved := make([]byte, bextReservedLen)
 	copy(reserved, bext.Reserved)

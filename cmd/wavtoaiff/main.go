@@ -51,7 +51,7 @@ func run(args []string, currentUser func() (*user.User, error), out io.Writer) e
 
 	pathFlag := fs.String("path", "", "The path to the wav file to convert to aiff")
 	if err := fs.Parse(args); err != nil {
-		return err
+		return fmt.Errorf("failed to parse flags: %w", err)
 	}
 
 	if *pathFlag == "" {

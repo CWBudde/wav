@@ -690,7 +690,10 @@ func (e *Encoder) Close() error {
 	}
 
 	if f, ok := e.w.(*os.File); ok {
-		return f.Sync()
+		err := f.Sync()
+		if err != nil {
+			return fmt.Errorf("failed to sync file: %w", err)
+		}
 	}
 
 	return nil

@@ -75,17 +75,28 @@ func tagFile(path string) error {
 		return fmt.Errorf("couldn't read buffer %s %w", path, err)
 	}
 
-	in.Close()
+	if err := in.Close(); err != nil {
+		return fmt.Errorf("failed to close input file %s: %w", path, err)
+	}
 
 	outputDir := filepath.Join(filepath.Dir(path), "wavtagger")
+
 	outPath := filepath.Join(outputDir, filepath.Base(path))
-	os.MkdirAll(outputDir, os.ModePerm)
+	if err := os.MkdirAll(outputDir, os.ModePerm); err != nil {
+		return fmt.Errorf("failed to create output directory %s: %w", outputDir, err)
+	}
 
 	out, err := os.Create(outPath)
 	if err != nil {
 		return fmt.Errorf("couldn't create %s %w", outPath, err)
 	}
-	defer out.Close()
+
+	defer func() {
+		cerr := out.Close()
+		if cerr != nil && err == nil {
+			err = fmt.Errorf("failed to close output file: %w", cerr)
+		}
+	}()
 
 	encoder := wav.NewEncoder(out,
 		buf.Format.SampleRate,

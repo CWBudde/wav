@@ -3,6 +3,7 @@ package wav
 import (
 	"bytes"
 	"encoding/binary"
+	"fmt"
 	"io"
 	"testing"
 
@@ -20,9 +21,11 @@ func (h *testCustomListHandler) CanHandle(chunkID [4]byte, listType [4]byte) boo
 func (h *testCustomListHandler) Decode(_ *Decoder, ch *riff.Chunk) error {
 	h.called = true
 
-	_, err := io.ReadAll(ch.R)
+	if _, err := io.ReadAll(ch.R); err != nil {
+		return fmt.Errorf("failed to read chunk: %w", err)
+	}
 
-	return err
+	return nil
 }
 
 func (h *testCustomListHandler) Encode(_ *Encoder) error {

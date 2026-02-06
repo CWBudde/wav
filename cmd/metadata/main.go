@@ -29,57 +29,63 @@ func main() {
 
 var errMissingPath = errors.New("missing path argument")
 
-func run(args []string, out io.Writer) error {
+func run(args []string, out io.Writer) (err error) {
 	if len(args) < 1 {
 		return errMissingPath
 	}
 
 	file, err := os.Open(args[0])
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to open file: %w", err)
 	}
-	defer file.Close()
+
+	defer func() {
+		cerr := file.Close()
+		if cerr != nil && err == nil {
+			err = cerr
+		}
+	}()
 
 	dec := wav.NewDecoder(file)
 	dec.ReadMetadata()
 
 	if err := dec.Err(); err != nil {
-		return err
+		return fmt.Errorf("failed to read metadata: %w", err)
 	}
 
 	if dec.Metadata == nil {
-		fmt.Fprintln(out, "No metadata present")
+		_, _ = fmt.Fprintln(out, "No metadata present")
 		return nil
 	}
 
-	fmt.Fprintf(out, "Artist: %s\n", dec.Metadata.Artist)
-	fmt.Fprintf(out, "Title: %s\n", dec.Metadata.Title)
-	fmt.Fprintf(out, "Comments: %s\n", dec.Metadata.Comments)
-	fmt.Fprintf(out, "Copyright: %s\n", dec.Metadata.Copyright)
-	fmt.Fprintf(out, "CreationDate: %s\n", dec.Metadata.CreationDate)
-	fmt.Fprintf(out, "Engineer: %s\n", dec.Metadata.Engineer)
-	fmt.Fprintf(out, "Technician: %s\n", dec.Metadata.Technician)
-	fmt.Fprintf(out, "Genre: %s\n", dec.Metadata.Genre)
-	fmt.Fprintf(out, "Keywords: %s\n", dec.Metadata.Keywords)
-	fmt.Fprintf(out, "Medium: %s\n", dec.Metadata.Medium)
-	fmt.Fprintf(out, "Product: %s\n", dec.Metadata.Product)
-	fmt.Fprintf(out, "Subject: %s\n", dec.Metadata.Subject)
-	fmt.Fprintf(out, "Software: %s\n", dec.Metadata.Software)
-	fmt.Fprintf(out, "Source: %s\n", dec.Metadata.Source)
-	fmt.Fprintf(out, "Location: %s\n", dec.Metadata.Location)
-	fmt.Fprintf(out, "TrackNbr: %s\n", dec.Metadata.TrackNbr)
+	_, _ = fmt.Fprintf(out, "Artist: %s\n", dec.Metadata.Artist)
+	_, _ = fmt.Fprintf(out, "Title: %s\n", dec.Metadata.Title)
+	_, _ = fmt.Fprintf(out, "Comments: %s\n", dec.Metadata.Comments)
+	_, _ = fmt.Fprintf(out, "Copyright: %s\n", dec.Metadata.Copyright)
+	_, _ = fmt.Fprintf(out, "CreationDate: %s\n", dec.Metadata.CreationDate)
+	_, _ = fmt.Fprintf(out, "Engineer: %s\n", dec.Metadata.Engineer)
+	_, _ = fmt.Fprintf(out, "Technician: %s\n", dec.Metadata.Technician)
+	_, _ = fmt.Fprintf(out, "Genre: %s\n", dec.Metadata.Genre)
+	_, _ = fmt.Fprintf(out, "Keywords: %s\n", dec.Metadata.Keywords)
+	_, _ = fmt.Fprintf(out, "Medium: %s\n", dec.Metadata.Medium)
+	_, _ = fmt.Fprintf(out, "Product: %s\n", dec.Metadata.Product)
+	_, _ = fmt.Fprintf(out, "Subject: %s\n", dec.Metadata.Subject)
+	_, _ = fmt.Fprintf(out, "Software: %s\n", dec.Metadata.Software)
+	_, _ = fmt.Fprintf(out, "Source: %s\n", dec.Metadata.Source)
+	_, _ = fmt.Fprintf(out, "Location: %s\n", dec.Metadata.Location)
+	_, _ = fmt.Fprintf(out, "TrackNbr: %s\n", dec.Metadata.TrackNbr)
 
-	fmt.Fprintln(out, "Sample Info:")
-	fmt.Fprintf(out, "%+v\n", dec.Metadata.SamplerInfo)
+	_, _ = fmt.Fprintln(out, "Sample Info:")
+	_, _ = fmt.Fprintf(out, "%+v\n", dec.Metadata.SamplerInfo)
 
 	if dec.Metadata.SamplerInfo != nil {
 		for i, l := range dec.Metadata.SamplerInfo.Loops {
-			fmt.Fprintf(out, "\tloop [%d]:\t%+v\n", i, l)
+			_, _ = fmt.Fprintf(out, "\tloop [%d]:\t%+v\n", i, l)
 		}
 	}
 
 	for i, c := range dec.Metadata.CuePoints {
-		fmt.Fprintf(out, "\tcue point [%d]:\t%+v\n", i, c)
+		_, _ = fmt.Fprintf(out, "\tcue point [%d]:\t%+v\n", i, c)
 	}
 
 	return nil

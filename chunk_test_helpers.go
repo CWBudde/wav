@@ -61,7 +61,7 @@ func parseWavChunks(data []byte) ([]testChunk, error) {
 func parseWavChunksFromFile(path string) ([]testChunk, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to read file %s: %w", path, err)
 	}
 
 	return parseWavChunks(data)
