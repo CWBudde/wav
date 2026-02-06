@@ -2,8 +2,10 @@ package wav
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -128,9 +130,12 @@ func TestDecoder_IsValidFile(t *testing.T) {
 		{"fixtures/GLASS.WAV", true},
 		{"fixtures/Utopia-Critical-Stop.wav", true},
 		// Known-valid but special-case files
-		{"fixtures/M1F1-int12-AFsp.wav", true}, // Valid file but decoding will fail
+		{"fixtures/M1F1-int12-AFsp.wav", true},
 		{"fixtures/Pmiscck.wav", true},
 		{"fixtures/Ptjunk.wav", true},
+		{"fixtures/addf8-GSM-GW.wav", false},
+		{"fixtures/truspech.wav", false},
+		{"fixtures/voxware.wav", false},
 	}
 
 	for _, testCase := range testCases {
@@ -382,6 +387,13 @@ func TestDecoder_PCMBuffer(t *testing.T) {
 			46986,
 		},
 		{
+			"fixtures/M1F1-int12-AFsp.wav",
+			"M1F1-int12-AFsp.wav 2 ch, 8000 Hz, 12/16-bit signed integer",
+			12,
+			nil,
+			46986,
+		},
+		{
 			"fixtures/M1F1-int24-AFsp.wav",
 			"M1F1-int24-AFsp.wav 2 ch, 8000 Hz, 24-bit signed integer",
 			24,
@@ -482,6 +494,77 @@ func TestDecoder_PCMBuffer(t *testing.T) {
 						t.Fatalf("Expected %.6f at position %d, but got %.6f", expected, i, sample)
 					}
 				}
+			}
+		})
+	}
+}
+
+func TestDecoder_Int12MatchesInt16Fixture(t *testing.T) {
+	int12File, err := os.Open("fixtures/M1F1-int12-AFsp.wav")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer int12File.Close()
+
+	int16File, err := os.Open("fixtures/M1F1-int16-AFsp.wav")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer int16File.Close()
+
+	int12Buf, err := NewDecoder(int12File).FullPCMBuffer()
+	if err != nil {
+		t.Fatalf("failed decoding int12 fixture: %v", err)
+	}
+
+	int16Buf, err := NewDecoder(int16File).FullPCMBuffer()
+	if err != nil {
+		t.Fatalf("failed decoding int16 fixture: %v", err)
+	}
+
+	if len(int12Buf.Data) != len(int16Buf.Data) {
+		t.Fatalf("expected matching sample counts, got %d and %d", len(int12Buf.Data), len(int16Buf.Data))
+	}
+
+	for i := range int12Buf.Data {
+		if !float32ApproxEqual(int12Buf.Data[i], int16Buf.Data[i], 1e-6) {
+			t.Fatalf("sample %d mismatch: int12 %.6f != int16 %.6f", i, int12Buf.Data[i], int16Buf.Data[i])
+		}
+	}
+}
+
+func TestDecoder_UnsupportedCompressedFormats(t *testing.T) {
+	testCases := []struct {
+		path       string
+		formatCode uint16
+	}{
+		{path: "fixtures/addf8-GSM-GW.wav", formatCode: 49},
+		{path: "fixtures/truspech.wav", formatCode: 34},
+		{path: "fixtures/voxware.wav", formatCode: 6172},
+	}
+
+	for _, tc := range testCases {
+		t.Run(filepath.Base(tc.path), func(t *testing.T) {
+			f, err := os.Open(tc.path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer f.Close()
+
+			d := NewDecoder(f)
+
+			if d.IsValidFile() {
+				t.Fatalf("expected compressed fixture %s to be invalid", tc.path)
+			}
+
+			_, err = d.FullPCMBuffer()
+			if err == nil {
+				t.Fatalf("expected unsupported format error for %s", tc.path)
+			}
+
+			want := fmt.Sprintf("unsupported wav format:%d", tc.formatCode)
+			if !strings.Contains(err.Error(), want) {
+				t.Fatalf("expected error to contain %q, got %v", want, err)
 			}
 		})
 	}
@@ -735,10 +818,10 @@ func TestDecoder_UnsupportedFormats(t *testing.T) {
 		errorMsg    string
 	}{
 		{
-			input:       "fixtures/M1F1-int12-AFsp.wav",
-			desc:        "12-bit PCM not supported",
+			input:       "fixtures/truspech.wav",
+			desc:        "TrueSpeech not supported",
 			expectError: true,
-			errorMsg:    "unhandled byte depth:12",
+			errorMsg:    "unsupported wav format:34",
 		},
 	}
 

@@ -600,7 +600,7 @@ func decodeWavHeaderChunk(chunk *riff.Chunk, parser *riff.Parser) error {
 }
 
 func bytesPerSample(bitDepth int) int {
-	return bitDepth / 8
+	return (bitDepth-1)/8 + 1
 }
 
 // sampleDecodeFunc returns a function that can be used to convert
@@ -608,19 +608,19 @@ func bytesPerSample(bitDepth int) int {
 // Note that 8bit samples are unsigned, all other values are signed.
 func sampleDecodeFunc(bitsPerSample int) (func(io.Reader, []byte) (int, error), error) {
 	// NOTE: WAV PCM data is stored using little-endian
-	switch bitsPerSample {
-	case 8:
+	switch {
+	case bitsPerSample == 8:
 		// 8bit values are unsigned
 		return func(r io.Reader, buf []byte) (int, error) {
 			_, err := r.Read(buf[:1])
 			return int(buf[0]), err
 		}, nil
-	case 16:
+	case bitsPerSample > 8 && bitsPerSample <= 16:
 		return func(r io.Reader, buf []byte) (int, error) {
 			_, err := r.Read(buf[:2])
 			return int(int16(binary.LittleEndian.Uint16(buf[:2]))), err
 		}, nil
-	case 24:
+	case bitsPerSample > 16 && bitsPerSample <= 24:
 		// -34,359,738,367 (0x7FFFFF) to 34,359,738,368	(0x800000)
 		return func(r io.Reader, buf []byte) (int, error) {
 			_, err := r.Read(buf[:3])
@@ -630,7 +630,7 @@ func sampleDecodeFunc(bitsPerSample int) (func(io.Reader, []byte) (int, error), 
 
 			return int(audio.Int24LETo32(buf[:3])), nil
 		}, nil
-	case 32:
+	case bitsPerSample > 24 && bitsPerSample <= 32:
 		return func(r io.Reader, buf []byte) (int, error) {
 			_, err := r.Read(buf[:4])
 			return int(int32(binary.LittleEndian.Uint32(buf[:4]))), err
@@ -710,6 +710,7 @@ func sampleDecodeFloat32Func(bitsPerSample int, wavFormat uint16) (func(io.Reade
 	if err != nil {
 		return nil, fmt.Errorf("failed to create int decoder: %w", err)
 	}
+	storageBitsPerSample := bytesPerSample(bitsPerSample) * 8
 
 	return func(r io.Reader, buf []byte) (float32, error) {
 		value, err := decodeInt(r, buf)
@@ -717,6 +718,6 @@ func sampleDecodeFloat32Func(bitsPerSample int, wavFormat uint16) (func(io.Reade
 			return 0, fmt.Errorf("failed to decode int sample: %w", err)
 		}
 
-		return normalizePCMInt(value, bitsPerSample), nil
+		return normalizePCMInt(value, storageBitsPerSample), nil
 	}, nil
 }
