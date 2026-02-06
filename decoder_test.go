@@ -537,7 +537,6 @@ func TestDecoder_UnsupportedCompressedFormats(t *testing.T) {
 		formatCode uint16
 		formatName string
 	}{
-		{path: "fixtures/addf8-GSM-GW.wav", formatCode: 49, formatName: "GSM 6.10"},
 		{path: "fixtures/truspech.wav", formatCode: 34, formatName: "TrueSpeech"},
 		{path: "fixtures/voxware.wav", formatCode: 6172, formatName: "Voxware"},
 	}

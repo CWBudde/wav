@@ -7,6 +7,7 @@ const (
 	wavFormatIEEEFloat  = 3
 	wavFormatALaw       = 6
 	wavFormatMuLaw      = 7
+	wavFormatGSM610     = 49
 	wavFormatExtensible = 0xFFFE
 	maxPCMInt8Unsigned  = 255
 	scalePCMInt8        = 127.5

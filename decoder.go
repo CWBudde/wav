@@ -62,6 +62,7 @@ type Decoder struct {
 	// compressed formats (diagnostic/informational only).
 	CompressedSamples uint32
 
+	gsmDec            *gsmDecoder
 	unknownChunkOrder int
 }
 
@@ -99,6 +100,7 @@ func (d *Decoder) Rewind() error {
 	d.NumChans = 0
 	d.CompressedSamples = 0
 	d.FmtChunk = nil
+	d.gsmDec = nil
 
 	err = d.FwdToPCM()
 	if err != nil {
@@ -155,7 +157,7 @@ func (d *Decoder) IsValidFile() bool {
 		return false
 	}
 
-	if d.BitDepth < 8 && !isUnsupportedCompressedFormat(d.WavAudioFormat) {
+	if d.BitDepth < 8 && d.WavAudioFormat != wavFormatGSM610 && !isUnsupportedCompressedFormat(d.WavAudioFormat) {
 		return false
 	}
 
@@ -330,6 +332,20 @@ func (d *Decoder) FullPCMBuffer() (*audio.Float32Buffer, error) {
 		SampleRate:  int(d.SampleRate),
 	}
 
+	if d.WavAudioFormat == wavFormatGSM610 {
+		dec := newGSMDecoder(int(d.CompressedSamples))
+		samples, err := dec.decodeAllBlocks(d.PCMChunk.R, int(d.CompressedSamples))
+		if err != nil {
+			return nil, err
+		}
+
+		return &audio.Float32Buffer{
+			Data:           samples,
+			Format:         format,
+			SourceBitDepth: 16,
+		}, nil
+	}
+
 	if isUnsupportedCompressedFormat(d.WavAudioFormat) {
 		return nil, unsupportedCompressedFormatError(d.WavAudioFormat)
 	}
@@ -394,6 +410,20 @@ func (d *Decoder) PCMBuffer(buf *audio.Float32Buffer) (n int, err error) {
 	}
 
 	buf.SourceBitDepth = int(d.BitDepth)
+
+	if d.WavAudioFormat == wavFormatGSM610 {
+		if d.gsmDec == nil {
+			d.gsmDec = newGSMDecoder(int(d.CompressedSamples))
+		}
+		buf.SourceBitDepth = 16
+		buf.Format = format
+		n, err := d.gsmDec.decodeToBuffer(d.PCMChunk.R, buf.Data)
+		if err != nil {
+			return n, err
+		}
+
+		return n, nil
+	}
 
 	if isUnsupportedCompressedFormat(d.WavAudioFormat) {
 		return 0, unsupportedCompressedFormatError(d.WavAudioFormat)
@@ -692,7 +722,7 @@ func bytesPerSample(bitDepth int) int {
 
 func isUnsupportedCompressedFormat(wavFormat uint16) bool {
 	switch wavFormat {
-	case 34, 49, 6172:
+	case 34, 6172:
 		return true
 	default:
 		return false
@@ -702,8 +732,6 @@ func isUnsupportedCompressedFormat(wavFormat uint16) bool {
 func unsupportedCompressedFormatError(wavFormat uint16) error {
 	var name string
 	switch wavFormat {
-	case 49:
-		name = "GSM 6.10"
 	case 34:
 		name = "TrueSpeech"
 	case 6172:

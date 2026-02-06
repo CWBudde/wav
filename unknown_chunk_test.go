@@ -50,11 +50,7 @@ func TestUnknownChunkRoundTripPreservesPayloadAndOrder(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	enc := NewEncoder(out, buf.Format.SampleRate, int(dec.BitDepth), buf.Format.NumChannels, int(dec.WavAudioFormat))
-	enc.UnknownChunks = make([]RawChunk, len(dec.UnknownChunks))
-	for i := range dec.UnknownChunks {
-		enc.UnknownChunks[i] = dec.UnknownChunks[i].Clone()
-	}
+	enc := NewEncoderFromDecoder(out, dec)
 
 	if err := enc.Write(buf); err != nil {
 		t.Fatalf("encode: %v", err)

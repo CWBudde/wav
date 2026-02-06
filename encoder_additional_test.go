@@ -9,6 +9,70 @@ import (
 	"github.com/go-audio/audio"
 )
 
+func TestNewEncoderFromDecoder_CopiesRoundTripFields(t *testing.T) {
+	outPath := filepath.Join(t.TempDir(), "from_decoder.wav")
+	out, err := os.Create(outPath)
+	if err != nil {
+		t.Fatalf("create output: %v", err)
+	}
+	defer out.Close()
+
+	subFormat := makeSubFormatGUID(wavFormatPCM)
+	dec := &Decoder{
+		SampleRate:     44100,
+		BitDepth:       16,
+		NumChans:       2,
+		WavAudioFormat: wavFormatPCM,
+		FmtChunk: &FmtChunk{
+			FormatTag: wavFormatExtensible,
+			Extensible: &FmtExtensible{
+				ValidBitsPerSample: 16,
+				ChannelMask:        0x3,
+				SubFormat:          subFormat,
+			},
+		},
+		UnknownChunks: []RawChunk{
+			{ID: [4]byte{'J', 'U', 'N', 'K'}, Size: 3, Data: []byte{1, 2, 3}, BeforeData: true},
+		},
+	}
+
+	enc := NewEncoderFromDecoder(out, dec)
+	if enc.SampleRate != int(dec.SampleRate) {
+		t.Fatalf("sample rate mismatch: got %d want %d", enc.SampleRate, dec.SampleRate)
+	}
+	if enc.BitDepth != int(dec.BitDepth) {
+		t.Fatalf("bit depth mismatch: got %d want %d", enc.BitDepth, dec.BitDepth)
+	}
+	if enc.NumChans != int(dec.NumChans) {
+		t.Fatalf("channels mismatch: got %d want %d", enc.NumChans, dec.NumChans)
+	}
+	if enc.WavAudioFormat != int(dec.WavAudioFormat) {
+		t.Fatalf("audio format mismatch: got %d want %d", enc.WavAudioFormat, dec.WavAudioFormat)
+	}
+
+	if enc.FmtChunk == nil || enc.FmtChunk.Extensible == nil {
+		t.Fatal("expected fmt chunk copy with extensible fields")
+	}
+	if enc.FmtChunk == dec.FmtChunk {
+		t.Fatal("fmt chunk should be deep-copied")
+	}
+
+	if len(enc.UnknownChunks) != 1 {
+		t.Fatalf("unknown chunk count mismatch: got %d", len(enc.UnknownChunks))
+	}
+	if &enc.UnknownChunks[0] == &dec.UnknownChunks[0] {
+		t.Fatal("unknown chunk should be deep-copied")
+	}
+	if !strings.EqualFold(string(enc.UnknownChunks[0].ID[:]), "junk") {
+		t.Fatalf("unexpected unknown chunk id: %q", enc.UnknownChunks[0].ID)
+	}
+
+	dec.UnknownChunks[0].Data[0] = 9
+	if enc.UnknownChunks[0].Data[0] != 1 {
+		t.Fatal("encoder unknown chunk data should not share backing storage with decoder")
+	}
+}
+
 func TestEncoderWriteFrameFloat64(t *testing.T) {
 	outPath := filepath.Join(t.TempDir(), "frame_float64.wav")
 	out, err := os.Create(outPath)

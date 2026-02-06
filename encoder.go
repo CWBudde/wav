@@ -59,6 +59,27 @@ func NewEncoder(w io.WriteSeeker, sampleRate, bitDepth, numChans, audioFormat in
 	}
 }
 
+// NewEncoderFromDecoder creates an encoder initialized from decoder settings.
+// It carries format details and preserved unknown chunks for round-trip flows.
+func NewEncoderFromDecoder(w io.WriteSeeker, d *Decoder) *Encoder {
+	if d == nil {
+		return NewEncoder(w, 0, 0, 0, 0)
+	}
+
+	enc := NewEncoder(w, int(d.SampleRate), int(d.BitDepth), int(d.NumChans), int(d.WavAudioFormat))
+	if d.FmtChunk != nil {
+		enc.FmtChunk = d.FmtChunk.Clone()
+	}
+	if len(d.UnknownChunks) > 0 {
+		enc.UnknownChunks = make([]RawChunk, len(d.UnknownChunks))
+		for i := range d.UnknownChunks {
+			enc.UnknownChunks[i] = d.UnknownChunks[i].Clone()
+		}
+	}
+
+	return enc
+}
+
 // AddLE serializes and adds the passed value using little endian.
 func (e *Encoder) AddLE(src any) error {
 	e.WrittenBytes += binary.Size(src)
