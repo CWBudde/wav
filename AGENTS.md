@@ -26,7 +26,7 @@
 - Tests are written with the Go `testing` package.
 - Name tests `TestXxx` and benchmarks `BenchmarkXxx`.
 - Use fixtures from `fixtures/` for I/O-heavy tests; avoid adding large new assets unless needed.
-- No explicit coverage target is enforced; prioritize meaningful cases and edge conditions.
+- No explicit coverage target is enforced; prioritize meaningful casejust s and edge conditions.
 
 ## Commit & Pull Request Guidelines
 

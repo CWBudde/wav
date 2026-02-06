@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"log"
 	"math"
 	"os"
@@ -10,17 +11,27 @@ import (
 )
 
 func main() {
-	output := flag.String("output", "output.wav", "filename to write to")
-	frequency := flag.Float64("frequency", 440, "frequency in hertz to generate")
-	length := flag.Float64("length", 5, "length in seconds of output file")
+	if err := run(os.Args[1:]); err != nil {
+		log.Fatal(err)
+	}
+}
 
-	flag.Parse()
+func run(args []string) error {
+	fs := flag.NewFlagSet("gen-sine", flag.ContinueOnError)
+
+	output := fs.String("output", "output.wav", "filename to write to")
+	frequency := fs.Float64("frequency", 440, "frequency in hertz to generate")
+	length := fs.Float64("length", 5, "length in seconds of output file")
+
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
 
 	log.Printf("generating a %f sec sine wav at %f hz", *length, *frequency)
 
 	file, err := os.Create(*output)
 	if err != nil {
-		log.Fatalf("error creating %s: %s", *output, err)
+		return fmt.Errorf("error creating %s: %w", *output, err)
 	}
 	defer file.Close()
 
@@ -29,11 +40,13 @@ func main() {
 	wavOut := wav.NewEncoder(file, sampleRate, 16, 1, 1)
 	numSamples := int(sampleRate * *length)
 
-	defer wavOut.Close()
-
 	for i := range numSamples {
 		fv := math.Sin(float64(i) / sampleRate * *frequency * 2 * math.Pi)
 		v := float32(fv)
-		wavOut.WriteFrame(v)
+		if err := wavOut.WriteFrame(v); err != nil {
+			return err
+		}
 	}
+
+	return wavOut.Close()
 }
