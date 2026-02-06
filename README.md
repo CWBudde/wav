@@ -5,6 +5,8 @@
 
 A Go package for encoding and decoding [WAV](https://en.wikipedia.org/wiki/WAV) audio files. Supports PCM integer (8/16/24/32-bit) and IEEE float (32/64-bit) formats, metadata (LIST/INFO chunks), sampler info (smpl chunks), and cue points.
 
+> Note: This repository is a fork from [go-audio/wav](https://github.com/go-audio/wav)
+
 ## Installation
 
 ```sh
@@ -109,12 +111,12 @@ encoder.Close()
 
 The `cmd/` directory contains several command-line utilities:
 
-| Tool             | Description                                        |
-| ---------------- | -------------------------------------------------- |
-| `cmd/metadata`   | Read and display metadata from a WAV file          |
-| `cmd/wavtoaiff`  | Convert a WAV file to AIFF format                  |
-| `cmd/wavtagger`  | Tag WAV files with metadata (single file or batch) |
-| `cmd/gen-sine`   | Generate a sine wave WAV file at a given frequency |
+| Tool            | Description                                        |
+| --------------- | -------------------------------------------------- |
+| `cmd/metadata`  | Read and display metadata from a WAV file          |
+| `cmd/wavtoaiff` | Convert a WAV file to AIFF format                  |
+| `cmd/wavtagger` | Tag WAV files with metadata (single file or batch) |
+| `cmd/gen-sine`  | Generate a sine wave WAV file at a given frequency |
 
 ### Examples
 

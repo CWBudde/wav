@@ -110,6 +110,27 @@ func TestDecoder_IsValidFile(t *testing.T) {
 		{"fixtures/sample.avi", false},
 		{"fixtures/bloop.aif", false},
 		{"fixtures/bwf.wav", true},
+		// M1F1 AFsp test files
+		{"fixtures/M1F1-uint8-AFsp.wav", true},
+		{"fixtures/M1F1-int16-AFsp.wav", true},
+		{"fixtures/M1F1-int24-AFsp.wav", true},
+		{"fixtures/M1F1-int32-AFsp.wav", true},
+		{"fixtures/M1F1-float32-AFsp.wav", true},
+		{"fixtures/M1F1-float64-AFsp.wav", true},
+		{"fixtures/M1F1-Alaw-AFsp.wav", true},
+		{"fixtures/M1F1-AlawWE-AFsp.wav", true},
+		{"fixtures/M1F1-mulaw-AFsp.wav", true},
+		{"fixtures/M1F1-mulawWE-AFsp.wav", true},
+		// Stereo test files
+		{"fixtures/stereol.wav", true},
+		{"fixtures/stereofl.wav", true},
+		// Edge case files
+		{"fixtures/GLASS.WAV", true},
+		{"fixtures/Utopia-Critical-Stop.wav", true},
+		// Known-valid but special-case files
+		{"fixtures/M1F1-int12-AFsp.wav", true}, // Valid file but decoding will fail
+		{"fixtures/Pmiscck.wav", true},
+		{"fixtures/Ptjunk.wav", true},
 	}
 
 	for _, testCase := range testCases {
@@ -123,6 +144,96 @@ func TestDecoder_IsValidFile(t *testing.T) {
 		if d.IsValidFile() != testCase.isValid {
 			t.Fatalf("validation of the wav files doesn't match expected %t, got %t", testCase.isValid, d.IsValidFile())
 		}
+	}
+}
+
+func TestDecoder_G711FullPCMBuffer(t *testing.T) {
+	testCases := []struct {
+		input        string
+		format       uint16
+		sampleRate   int
+		numChannels  int
+		sourceBitDep int
+	}{
+		{
+			input:        "fixtures/M1F1-Alaw-AFsp.wav",
+			format:       6, // wavFormatALaw
+			sampleRate:   8000,
+			numChannels:  2,
+			sourceBitDep: 8,
+		},
+		{
+			input:        "fixtures/M1F1-mulaw-AFsp.wav",
+			format:       7, // wavFormatMuLaw
+			sampleRate:   8000,
+			numChannels:  2,
+			sourceBitDep: 8,
+		},
+		{
+			input:        "fixtures/M1F1-AlawWE-AFsp.wav",
+			format:       6, // wavFormatALaw
+			sampleRate:   8000,
+			numChannels:  2,
+			sourceBitDep: 8,
+		},
+		{
+			input:        "fixtures/M1F1-mulawWE-AFsp.wav",
+			format:       7, // wavFormatMuLaw
+			sampleRate:   8000,
+			numChannels:  2,
+			sourceBitDep: 8,
+		},
+		{
+			input:        "fixtures/addf8-Alaw-GW.wav",
+			format:       6, // wavFormatALaw
+			sampleRate:   8000,
+			numChannels:  1,
+			sourceBitDep: 8,
+		},
+		{
+			input:        "fixtures/addf8-mulaw-GW.wav",
+			format:       7, // wavFormatMuLaw
+			sampleRate:   8000,
+			numChannels:  1,
+			sourceBitDep: 8,
+		},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(filepath.Base(testCase.input), func(t *testing.T) {
+			file, err := os.Open(testCase.input)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer file.Close()
+
+			decoder := NewDecoder(file)
+
+			buf, err := decoder.FullPCMBuffer()
+			if err != nil {
+				t.Fatalf("failed to decode %s: %v", testCase.input, err)
+			}
+
+			if int(decoder.WavAudioFormat) != int(testCase.format) {
+				t.Fatalf("expected wav format %d, got %d", testCase.format, decoder.WavAudioFormat)
+			}
+
+			if buf.SourceBitDepth != testCase.sourceBitDep {
+				t.Fatalf("expected source bit depth %d, got %d", testCase.sourceBitDep, buf.SourceBitDepth)
+			}
+
+			if buf.Format.SampleRate != testCase.sampleRate {
+				t.Fatalf("expected sample rate %d, got %d", testCase.sampleRate, buf.Format.SampleRate)
+			}
+
+			if buf.Format.NumChannels != testCase.numChannels {
+				t.Fatalf("expected channels %d, got %d", testCase.numChannels, buf.Format.NumChannels)
+			}
+
+			if len(buf.Data) == 0 {
+				t.Fatalf("expected decoded samples for %s", testCase.input)
+			}
+		})
 	}
 }
 
@@ -255,6 +366,64 @@ func TestDecoder_PCMBuffer(t *testing.T) {
 			nil,
 			30636,
 		},
+		// M1F1 AFsp test files
+		{
+			"fixtures/M1F1-uint8-AFsp.wav",
+			"M1F1-uint8-AFsp.wav 2 ch, 8000 Hz, 8-bit unsigned integer",
+			8,
+			nil,
+			46986,
+		},
+		{
+			"fixtures/M1F1-int16-AFsp.wav",
+			"M1F1-int16-AFsp.wav 2 ch, 8000 Hz, 16-bit signed integer",
+			16,
+			nil,
+			46986,
+		},
+		{
+			"fixtures/M1F1-int24-AFsp.wav",
+			"M1F1-int24-AFsp.wav 2 ch, 8000 Hz, 24-bit signed integer",
+			24,
+			nil,
+			46986,
+		},
+		{
+			"fixtures/M1F1-int32-AFsp.wav",
+			"M1F1-int32-AFsp.wav 2 ch, 8000 Hz, 32-bit signed integer",
+			32,
+			nil,
+			46986,
+		},
+		{
+			"fixtures/M1F1-float32-AFsp.wav",
+			"M1F1-float32-AFsp.wav 2 ch, 8000 Hz, 32-bit IEEE float",
+			32,
+			nil,
+			46986,
+		},
+		{
+			"fixtures/M1F1-float64-AFsp.wav",
+			"M1F1-float64-AFsp.wav 2 ch, 8000 Hz, 64-bit IEEE float",
+			64,
+			nil,
+			46986,
+		},
+		// Stereo test files
+		{
+			"fixtures/stereol.wav",
+			"stereol.wav 2 ch, 22050 Hz, 16-bit signed integer",
+			16,
+			nil,
+			58032,
+		},
+		{
+			"fixtures/stereofl.wav",
+			"stereofl.wav 2 ch, 22050 Hz, 32-bit IEEE float",
+			32,
+			nil,
+			58032,
+		},
 	}
 
 	for _, testCase := range testCases {
@@ -358,6 +527,88 @@ func TestDecoder_FullPCMBuffer(t *testing.T) {
 			1,
 			22050,
 			16,
+		},
+		// M1F1 AFsp test files
+		{
+			"fixtures/M1F1-uint8-AFsp.wav",
+			"2 ch, 8000 Hz, 8-bit unsigned integer",
+			nil,
+			46986,
+			23493,
+			2,
+			8000,
+			8,
+		},
+		{
+			"fixtures/M1F1-int16-AFsp.wav",
+			"2 ch, 8000 Hz, 16-bit signed integer",
+			nil,
+			46986,
+			23493,
+			2,
+			8000,
+			16,
+		},
+		{
+			"fixtures/M1F1-int24-AFsp.wav",
+			"2 ch, 8000 Hz, 24-bit signed integer",
+			nil,
+			46986,
+			23493,
+			2,
+			8000,
+			24,
+		},
+		{
+			"fixtures/M1F1-int32-AFsp.wav",
+			"2 ch, 8000 Hz, 32-bit signed integer",
+			nil,
+			46986,
+			23493,
+			2,
+			8000,
+			32,
+		},
+		{
+			"fixtures/M1F1-float32-AFsp.wav",
+			"2 ch, 8000 Hz, 32-bit IEEE float",
+			nil,
+			46986,
+			23493,
+			2,
+			8000,
+			32,
+		},
+		{
+			"fixtures/M1F1-float64-AFsp.wav",
+			"2 ch, 8000 Hz, 64-bit IEEE float",
+			nil,
+			46986,
+			23493,
+			2,
+			8000,
+			64,
+		},
+		// Stereo test files
+		{
+			"fixtures/stereol.wav",
+			"2 ch, 22050 Hz, 16-bit signed integer",
+			nil,
+			58032,
+			29016,
+			2,
+			22050,
+			16,
+		},
+		{
+			"fixtures/stereofl.wav",
+			"2 ch, 22050 Hz, 32-bit IEEE float",
+			nil,
+			58032,
+			29016,
+			2,
+			22050,
+			32,
 		},
 	}
 
@@ -474,4 +725,100 @@ func assertFloat32SlicesClose(t *testing.T, got, expected []float32, epsilon flo
 			t.Fatalf("expected %.6f at position %d, but got %.6f", expected[i], i, got[i])
 		}
 	}
+}
+
+func TestDecoder_UnsupportedFormats(t *testing.T) {
+	testCases := []struct {
+		input       string
+		desc        string
+		expectError bool
+		errorMsg    string
+	}{
+		{
+			input:       "fixtures/M1F1-int12-AFsp.wav",
+			desc:        "12-bit PCM not supported",
+			expectError: true,
+			errorMsg:    "unhandled byte depth:12",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.desc, func(t *testing.T) {
+			f, err := os.Open(tc.input)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer f.Close()
+
+			d := NewDecoder(f)
+			_, err = d.FullPCMBuffer()
+
+			if tc.expectError {
+				if err == nil {
+					t.Fatalf("expected error but got nil")
+				}
+
+				if !contains(err.Error(), tc.errorMsg) {
+					t.Fatalf("expected error containing %q, got %q", tc.errorMsg, err.Error())
+				}
+			}
+		})
+	}
+}
+
+func TestDecoder_EdgeCases(t *testing.T) {
+	testCases := []struct {
+		input string
+		desc  string
+	}{
+		{
+			input: "fixtures/GLASS.WAV",
+			desc:  "RIFF chunk length larger than file size",
+		},
+		{
+			input: "fixtures/Utopia-Critical-Stop.wav",
+			desc:  "PCM with misformatted fact chunk",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.desc, func(t *testing.T) {
+			f, err := os.Open(tc.input)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer f.Close()
+
+			d := NewDecoder(f)
+			// Should be able to read basic info
+			d.ReadInfo()
+			if err := d.Err(); err != nil {
+				t.Fatalf("unexpected error reading info: %v", err)
+			}
+
+			// Should be able to decode PCM data
+			buf, err := d.FullPCMBuffer()
+			if err != nil {
+				t.Fatalf("unexpected error reading PCM: %v", err)
+			}
+
+			if len(buf.Data) == 0 {
+				t.Fatal("expected non-zero samples")
+			}
+		})
+	}
+}
+
+func contains(s, substr string) bool {
+	return len(s) >= len(substr) && (s == substr || len(substr) == 0 || findSubstring(s, substr))
+}
+
+func findSubstring(s, substr string) bool {
+	for i := 0; i <= len(s)-len(substr); i++ {
+		if s[i:i+len(substr)] == substr {
+			return true
+		}
+	}
+
+	return false
 }

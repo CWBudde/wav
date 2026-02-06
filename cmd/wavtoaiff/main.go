@@ -3,8 +3,10 @@
 package main
 
 import (
+	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"log"
 	"math"
 	"os"
@@ -17,46 +19,69 @@ import (
 	"github.com/go-audio/audio"
 )
 
-var flagPath = flag.String("path", "", "The path to the wav file to convert to aiff")
+const missingPathMessage = "You must set the -path flag"
 
 func main() {
-	flag.Parse()
+	err := run(os.Args[1:], user.Current, os.Stdout)
+	if err == nil {
+		return
+	}
 
-	if *flagPath == "" {
-		fmt.Println("You must set the -path flag")
+	if errors.Is(err, errMissingPath) {
+		fmt.Println(missingPathMessage)
 		os.Exit(1)
 	}
 
-	usr, err := user.Current()
-	if err != nil {
+	if errors.Is(err, errResolveHomeDir) {
 		log.Println("Failed to get the user home directory")
 		os.Exit(1)
 	}
 
-	sourcePath := *flagPath
-	if sourcePath[:2] == "~/" {
+	log.Fatal(err)
+}
+
+var (
+	errMissingPath    = errors.New("missing -path flag")
+	errResolveHomeDir = errors.New("failed to resolve current user")
+)
+
+func run(args []string, currentUser func() (*user.User, error), out io.Writer) error {
+	fs := flag.NewFlagSet("wavtoaiff", flag.ContinueOnError)
+	pathFlag := fs.String("path", "", "The path to the wav file to convert to aiff")
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+
+	if *pathFlag == "" {
+		return errMissingPath
+	}
+
+	usr, err := currentUser()
+	if err != nil {
+		return errResolveHomeDir
+	}
+
+	sourcePath := *pathFlag
+	if strings.HasPrefix(sourcePath, "~/") {
 		sourcePath = strings.Replace(sourcePath, "~", usr.HomeDir, 1)
 	}
 
-	file, err := os.Open(*flagPath)
+	file, err := os.Open(sourcePath)
 	if err != nil {
-		fmt.Println("Invalid path", *flagPath, err)
-		os.Exit(1)
+		return fmt.Errorf("invalid path %s: %w", sourcePath, err)
 	}
 	defer file.Close()
 
 	decoder := wav.NewDecoder(file)
 	if !decoder.IsValidFile() {
-		fmt.Println("invalid WAV file")
-		os.Exit(1)
+		return errors.New("invalid WAV file")
 	}
 
 	outPath := sourcePath[:len(sourcePath)-len(filepath.Ext(sourcePath))] + ".aif"
 
 	outFile, err := os.Create(outPath)
 	if err != nil {
-		fmt.Println("Failed to create", outPath)
-		panic(err)
+		return fmt.Errorf("failed to create %s: %w", outPath, err)
 	}
 	defer outFile.Close()
 
@@ -90,15 +115,17 @@ func main() {
 
 		err := encoder.Write(intBuf)
 		if err != nil {
-			panic(err)
+			return fmt.Errorf("failed to write AIFF data: %w", err)
 		}
 	}
 
 	if err := encoder.Close(); err != nil {
-		panic(err)
+		return fmt.Errorf("failed to close AIFF encoder: %w", err)
 	}
 
-	fmt.Printf("Wav file converted to %s\n", outPath)
+	fmt.Fprintf(out, "Wav file converted to %s\n", outPath)
+
+	return nil
 }
 
 func float32ToIntBuffer(data []float32, format *audio.Format, bitDepth int) *audio.IntBuffer {

@@ -3,18 +3,21 @@ package wav
 import "math"
 
 const (
-	wavFormatPCM       = 1
-	wavFormatIEEEFloat = 3
-	maxPCMInt8Unsigned = 255
-	scalePCMInt8       = 127.5
-	scalePCMInt16      = 32768.0
-	scalePCMInt24      = 8388608.0
-	scalePCMInt32      = 2147483648.0
-	floatPCM8Center    = 127.5
-	floatPCM8Scale     = 127.5
-	maxPCMInt16        = 32767
-	maxPCMInt24        = 8388607
-	maxPCMInt32        = 2147483647
+	wavFormatPCM        = 1
+	wavFormatIEEEFloat  = 3
+	wavFormatALaw       = 6
+	wavFormatMuLaw      = 7
+	wavFormatExtensible = 0xFFFE
+	maxPCMInt8Unsigned  = 255
+	scalePCMInt8        = 127.5
+	scalePCMInt16       = 32768.0
+	scalePCMInt24       = 8388608.0
+	scalePCMInt32       = 2147483648.0
+	floatPCM8Center     = 127.5
+	floatPCM8Scale      = 127.5
+	maxPCMInt16         = 32767
+	maxPCMInt24         = 8388607
+	maxPCMInt32         = 2147483647
 )
 
 func clampFloat32(value, min, max float32) float32 {

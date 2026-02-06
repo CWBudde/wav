@@ -102,6 +102,30 @@ func (e *Encoder) addBuffer(buf *audio.Float32Buffer) error {
 				continue
 			}
 
+			if e.WavAudioFormat == wavFormatALaw {
+				if e.BitDepth != 8 {
+					return fmt.Errorf("unsupported A-law bit depth %d", e.BitDepth)
+				}
+
+				if err := e.buf.WriteByte(encodeALawSample(int16(float32ToPCMInt32(val, 16)))); err != nil {
+					return fmt.Errorf("failed to write A-law sample: %w", err)
+				}
+
+				continue
+			}
+
+			if e.WavAudioFormat == wavFormatMuLaw {
+				if e.BitDepth != 8 {
+					return fmt.Errorf("unsupported mu-law bit depth %d", e.BitDepth)
+				}
+
+				if err := e.buf.WriteByte(encodeMuLawSample(int16(float32ToPCMInt32(val, 16)))); err != nil {
+					return fmt.Errorf("failed to write mu-law sample: %w", err)
+				}
+
+				continue
+			}
+
 			if e.WavAudioFormat != wavFormatPCM {
 				return fmt.Errorf("unsupported wav format %d", e.WavAudioFormat)
 			}
@@ -286,6 +310,22 @@ func (e *Encoder) WriteFrame(value any) error {
 	case float32:
 		if e.WavAudioFormat == wavFormatIEEEFloat {
 			return e.AddLE(clampFloat32(val, -1, 1))
+		}
+
+		if e.WavAudioFormat == wavFormatALaw {
+			if e.BitDepth != 8 {
+				return fmt.Errorf("unsupported A-law bit depth %d", e.BitDepth)
+			}
+
+			return e.AddLE(encodeALawSample(int16(float32ToPCMInt32(val, 16))))
+		}
+
+		if e.WavAudioFormat == wavFormatMuLaw {
+			if e.BitDepth != 8 {
+				return fmt.Errorf("unsupported mu-law bit depth %d", e.BitDepth)
+			}
+
+			return e.AddLE(encodeMuLawSample(int16(float32ToPCMInt32(val, 16))))
 		}
 
 		if e.WavAudioFormat != wavFormatPCM {

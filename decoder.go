@@ -503,7 +503,10 @@ func (d *Decoder) readHeaders() error {
 		}
 
 		if chunk.ID == riff.FmtID {
-			chunk.DecodeWavHeader(d.parser)
+			if err := decodeWavHeaderChunk(chunk, d.parser); err != nil {
+				return fmt.Errorf("failed to decode fmt chunk: %w", err)
+			}
+
 			d.NumChans = d.parser.NumChannels
 			d.BitDepth = d.parser.BitsPerSample
 			d.SampleRate = d.parser.SampleRate
@@ -534,6 +537,66 @@ func (d *Decoder) readHeaders() error {
 	}
 
 	return d.err
+}
+
+func decodeWavHeaderChunk(chunk *riff.Chunk, parser *riff.Parser) error {
+	if chunk == nil || parser == nil {
+		return errors.New("nil chunk/parser pointer")
+	}
+
+	if err := chunk.ReadLE(&parser.WavAudioFormat); err != nil {
+		return fmt.Errorf("failed to read wav format: %w", err)
+	}
+	if err := chunk.ReadLE(&parser.NumChannels); err != nil {
+		return fmt.Errorf("failed to read channels: %w", err)
+	}
+	if err := chunk.ReadLE(&parser.SampleRate); err != nil {
+		return fmt.Errorf("failed to read sample rate: %w", err)
+	}
+	if err := chunk.ReadLE(&parser.AvgBytesPerSec); err != nil {
+		return fmt.Errorf("failed to read avg bytes/sec: %w", err)
+	}
+	if err := chunk.ReadLE(&parser.BlockAlign); err != nil {
+		return fmt.Errorf("failed to read block align: %w", err)
+	}
+	if err := chunk.ReadLE(&parser.BitsPerSample); err != nil {
+		return fmt.Errorf("failed to read bit depth: %w", err)
+	}
+
+	if chunk.Size <= 16 {
+		return nil
+	}
+
+	var extraSize uint16
+	if err := chunk.ReadLE(&extraSize); err != nil {
+		return fmt.Errorf("failed to read fmt extension size: %w", err)
+	}
+
+	if parser.WavAudioFormat != wavFormatExtensible || extraSize < 22 {
+		chunk.Drain()
+
+		return nil
+	}
+
+	var validBitsPerSample uint16
+	if err := chunk.ReadLE(&validBitsPerSample); err != nil {
+		return fmt.Errorf("failed to read valid bits: %w", err)
+	}
+
+	var channelMask uint32
+	if err := chunk.ReadLE(&channelMask); err != nil {
+		return fmt.Errorf("failed to read channel mask: %w", err)
+	}
+
+	var subFormat [16]byte
+	if err := chunk.ReadLE(&subFormat); err != nil {
+		return fmt.Errorf("failed to read sub format: %w", err)
+	}
+
+	parser.WavAudioFormat = binary.LittleEndian.Uint16(subFormat[:2])
+	chunk.Drain()
+
+	return nil
 }
 
 func bytesPerSample(bitDepth int) int {
@@ -607,6 +670,36 @@ func sampleDecodeFloat32Func(bitsPerSample int, wavFormat uint16) (func(io.Reade
 		default:
 			return nil, fmt.Errorf("unhandled float bit depth:%d", bitsPerSample)
 		}
+	}
+
+	if wavFormat == wavFormatALaw {
+		if bitsPerSample != 8 {
+			return nil, fmt.Errorf("unsupported A-law bit depth:%d", bitsPerSample)
+		}
+
+		return func(r io.Reader, buf []byte) (float32, error) {
+			_, err := r.Read(buf[:1])
+			if err != nil {
+				return 0, fmt.Errorf("failed to read A-law sample: %w", err)
+			}
+
+			return normalizePCMInt(int(decodeALawSample(buf[0])), 16), nil
+		}, nil
+	}
+
+	if wavFormat == wavFormatMuLaw {
+		if bitsPerSample != 8 {
+			return nil, fmt.Errorf("unsupported mu-law bit depth:%d", bitsPerSample)
+		}
+
+		return func(r io.Reader, buf []byte) (float32, error) {
+			_, err := r.Read(buf[:1])
+			if err != nil {
+				return 0, fmt.Errorf("failed to read mu-law sample: %w", err)
+			}
+
+			return normalizePCMInt(int(decodeMuLawSample(buf[0])), 16), nil
+		}, nil
 	}
 
 	if wavFormat != wavFormatPCM {
