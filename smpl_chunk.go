@@ -51,45 +51,55 @@ func DecodeSamplerChunk(d *Decoder, ch *riff.Chunk) error {
 		Reader := bytes.NewReader(buf)
 
 		scratch := make([]byte, 4)
-		if _, err = Reader.Read(scratch); err != nil {
+
+		_, err = Reader.Read(scratch)
+		if err != nil {
 			return errSmplManufacturerReadFail
 		}
 
 		copy(d.Metadata.SamplerInfo.Manufacturer[:], scratch[:4])
 
-		if _, err = Reader.Read(scratch); err != nil {
+		_, err = Reader.Read(scratch)
+		if err != nil {
 			return errSmplProductReadFail
 		}
 
 		copy(d.Metadata.SamplerInfo.Product[:], scratch[:4])
 
-		if err := binary.Read(Reader, binary.LittleEndian, &d.Metadata.SamplerInfo.SamplePeriod); err != nil {
+		err = binary.Read(Reader, binary.LittleEndian, &d.Metadata.SamplerInfo.SamplePeriod)
+		if err != nil {
 			return fmt.Errorf("failed to read sample period: %w", err)
 		}
 
-		if err := binary.Read(Reader, binary.LittleEndian, &d.Metadata.SamplerInfo.MIDIUnityNote); err != nil {
+		err = binary.Read(Reader, binary.LittleEndian, &d.Metadata.SamplerInfo.MIDIUnityNote)
+		if err != nil {
 			return fmt.Errorf("failed to read MIDI unity note: %w", err)
 		}
 
-		if err := binary.Read(Reader, binary.LittleEndian, &d.Metadata.SamplerInfo.MIDIPitchFraction); err != nil {
+		err = binary.Read(Reader, binary.LittleEndian, &d.Metadata.SamplerInfo.MIDIPitchFraction)
+		if err != nil {
 			return fmt.Errorf("failed to read MIDI pitch fraction: %w", err)
 		}
 
-		if err := binary.Read(Reader, binary.LittleEndian, &d.Metadata.SamplerInfo.SMPTEFormat); err != nil {
+		err = binary.Read(Reader, binary.LittleEndian, &d.Metadata.SamplerInfo.SMPTEFormat)
+		if err != nil {
 			return fmt.Errorf("failed to read SMPTE format: %w", err)
 		}
 
-		if err := binary.Read(Reader, binary.LittleEndian, &d.Metadata.SamplerInfo.SMPTEOffset); err != nil {
+		err = binary.Read(Reader, binary.LittleEndian, &d.Metadata.SamplerInfo.SMPTEOffset)
+		if err != nil {
 			return fmt.Errorf("failed to read SMPTE offset: %w", err)
 		}
 
-		if err := binary.Read(Reader, binary.LittleEndian, &d.Metadata.SamplerInfo.NumSampleLoops); err != nil {
+		err = binary.Read(Reader, binary.LittleEndian, &d.Metadata.SamplerInfo.NumSampleLoops)
+		if err != nil {
 			return fmt.Errorf("failed to read number of sample loops: %w", err)
 		}
 
 		var remaining uint32
 		// sampler data
-		if err := binary.Read(Reader, binary.BigEndian, &remaining); err != nil {
+		err = binary.Read(Reader, binary.BigEndian, &remaining)
+		if err != nil {
 			return fmt.Errorf("failed to read remaining sampler data: %w", err)
 		}
 
@@ -98,7 +108,8 @@ func DecodeSamplerChunk(d *Decoder, ch *riff.Chunk) error {
 			for range d.Metadata.SamplerInfo.NumSampleLoops {
 				sampleLoop := &SampleLoop{}
 
-				if _, err = Reader.Read(scratch); err != nil {
+				_, err = Reader.Read(scratch)
+				if err != nil {
 					return errSmplCuePointIDReadFail
 				}
 

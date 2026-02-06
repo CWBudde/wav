@@ -24,15 +24,19 @@ func TestChunkInventory_RoundTripUnknownFixture(t *testing.T) {
 	dec := NewDecoder(bytes.NewReader(input))
 	dec.ReadMetadata()
 
-	if err := dec.Err(); err != nil {
+	err = dec.Err()
+	if err != nil {
 		t.Fatalf("read metadata: %v", err)
 	}
 
-	if err := dec.Rewind(); err != nil {
+	err = dec.Rewind()
+	if err != nil {
 		t.Fatalf("rewind: %v", err)
 	}
 
-	pcm, err := dec.FullPCMBuffer()
+	var pcm *audio.Float32Buffer
+
+	pcm, err = dec.FullPCMBuffer()
 	if err != nil {
 		t.Fatalf("decode PCM: %v", err)
 	}
@@ -45,11 +49,14 @@ func TestChunkInventory_RoundTripUnknownFixture(t *testing.T) {
 	}
 
 	enc := NewEncoderFromDecoder(out, dec)
-	if err := enc.Write(pcm); err != nil {
+
+	err = enc.Write(pcm)
+	if err != nil {
 		t.Fatalf("encode PCM: %v", err)
 	}
 
-	if err := enc.Close(); err != nil {
+	err = enc.Close()
+	if err != nil {
 		t.Fatalf("close encoder: %v", err)
 	}
 

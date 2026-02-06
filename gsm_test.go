@@ -90,19 +90,19 @@ func TestGsmUnpackBlock(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	f1, f2, err := unpackWAV49Block(block)
+	file1, file2, err := unpackWAV49Block(block)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	// Verify LAR coefficients are in valid range.
-	for i, v := range f1.LAR {
+	for i, v := range file1.LAR {
 		if v < 0 || v > 63 {
 			t.Fatalf("f1.LAR[%d]=%d out of range", i, v)
 		}
 	}
 
-	for i, v := range f2.LAR {
+	for i, v := range file2.LAR {
 		if v < 0 || v > 63 {
 			t.Fatalf("f2.LAR[%d]=%d out of range", i, v)
 		}
@@ -110,7 +110,7 @@ func TestGsmUnpackBlock(t *testing.T) {
 
 	// Verify subframe parameters are in valid ranges.
 	for subFrameIndex := range 4 {
-		sub := f1.sub[subFrameIndex]
+		sub := file1.sub[subFrameIndex]
 		if sub.Nc < 0 || sub.Nc > 127 {
 			t.Fatalf("f1.sub[%d].Nc=%d out of range", subFrameIndex, sub.Nc)
 		}
@@ -227,39 +227,39 @@ func TestGSMPCMBuffer(t *testing.T) {
 
 func TestGSMFullPCMBuffer_PCMBuffer_Parity(t *testing.T) {
 	// Decode with FullPCMBuffer.
-	f1, err := os.Open("fixtures/addf8-GSM-GW.wav")
+	file1, err := os.Open("fixtures/addf8-GSM-GW.wav")
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer f1.Close()
+	defer file1.Close()
 
-	d1 := NewDecoder(f1)
+	dec1 := NewDecoder(file1)
 
-	fullBuf, err := d1.FullPCMBuffer()
+	fullBuf, err := dec1.FullPCMBuffer()
 	if err != nil {
 		t.Fatalf("FullPCMBuffer failed: %v", err)
 	}
 
 	// Decode with PCMBuffer (various chunk sizes).
 	for _, chunkSize := range []int{1, 100, 255, 320, 1024} {
-		f2, err := os.Open("fixtures/addf8-GSM-GW.wav")
+		file2, err := os.Open("fixtures/addf8-GSM-GW.wav")
 		if err != nil {
 			t.Fatal(err)
 		}
-		defer f2.Close()
+		defer file2.Close()
 
-		d2 := NewDecoder(f2)
-		d2.ReadInfo()
+		dec2 := NewDecoder(file2)
+		dec2.ReadInfo()
 
 		var streamed []float32
 
 		buf := &audio.Float32Buffer{
-			Format: d2.Format(),
+			Format: dec2.Format(),
 			Data:   make([]float32, chunkSize),
 		}
 
 		for {
-			n, err := d2.PCMBuffer(buf)
+			n, err := dec2.PCMBuffer(buf)
 			if err != nil {
 				t.Fatalf("chunk=%d: PCMBuffer failed: %v", chunkSize, err)
 			}

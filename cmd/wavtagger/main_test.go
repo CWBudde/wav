@@ -17,7 +17,8 @@ func TestTagFileWritesMetadata(t *testing.T) {
 		t.Fatalf("read fixture: %v", err)
 	}
 
-	if err := os.WriteFile(inPath, data, 0o644); err != nil {
+	err = os.WriteFile(inPath, data, 0o644)
+	if err != nil {
 		t.Fatalf("write temp input: %v", err)
 	}
 
@@ -37,7 +38,8 @@ func TestTagFileWritesMetadata(t *testing.T) {
 		*flagGenre = ""
 	}()
 
-	if err := tagFile(inPath); err != nil {
+	err = tagFile(inPath)
+	if err != nil {
 		t.Fatalf("tagFile returned error: %v", err)
 	}
 
@@ -52,7 +54,8 @@ func TestTagFileWritesMetadata(t *testing.T) {
 	dec := wav.NewDecoder(outFile)
 	dec.ReadMetadata()
 
-	if err := dec.Err(); err != nil {
+	err = dec.Err()
+	if err != nil {
 		t.Fatalf("decoder error: %v", err)
 	}
 
@@ -97,7 +100,8 @@ func TestTagFileWithDirectTitle(t *testing.T) {
 		t.Fatalf("read fixture: %v", err)
 	}
 
-	if err := os.WriteFile(inPath, data, 0o644); err != nil {
+	err = os.WriteFile(inPath, data, 0o644)
+	if err != nil {
 		t.Fatalf("write temp input: %v", err)
 	}
 
@@ -112,7 +116,8 @@ func TestTagFileWithDirectTitle(t *testing.T) {
 		*flagTitle = ""
 	}()
 
-	if err := tagFile(inPath); err != nil {
+	err = tagFile(inPath)
+	if err != nil {
 		t.Fatalf("tagFile returned error: %v", err)
 	}
 
@@ -127,7 +132,8 @@ func TestTagFileWithDirectTitle(t *testing.T) {
 	dec := wav.NewDecoder(outFile)
 	dec.ReadMetadata()
 
-	if err := dec.Err(); err != nil {
+	err = dec.Err()
+	if err != nil {
 		t.Fatalf("decoder error: %v", err)
 	}
 

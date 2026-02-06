@@ -27,7 +27,7 @@ func TestClampFloat32(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := clampFloat32(tt.value, 1)
+			got := clampFloat32(tt.value)
 			if got != tt.want {
 				t.Fatalf("clampFloat32(%f)=%f, want %f", tt.value, got, tt.want)
 			}
@@ -156,11 +156,13 @@ func TestRunErrors(t *testing.T) {
 		dir := t.TempDir()
 
 		inPath := filepath.Join(dir, "notwav.bin")
-		if err := os.WriteFile(inPath, []byte("not-a-wav"), 0o644); err != nil {
+
+		err := os.WriteFile(inPath, []byte("not-a-wav"), 0o644)
+		if err != nil {
 			t.Fatalf("write file: %v", err)
 		}
 
-		err := run([]string{"-path", inPath}, user.Current, &bytes.Buffer{})
+		err = run([]string{"-path", inPath}, user.Current, &bytes.Buffer{})
 		if err == nil || !strings.Contains(err.Error(), "invalid WAV file") {
 			t.Fatalf("expected invalid WAV file error, got %v", err)
 		}
@@ -176,17 +178,22 @@ func TestRunConvertsFile(t *testing.T) {
 		t.Fatalf("read fixture: %v", err)
 	}
 
-	if err := os.WriteFile(inPath, data, 0o644); err != nil {
+	err = os.WriteFile(inPath, data, 0o644)
+	if err != nil {
 		t.Fatalf("write temp wav: %v", err)
 	}
 
 	var out bytes.Buffer
-	if err := run([]string{"-path", inPath}, user.Current, &out); err != nil {
+
+	err = run([]string{"-path", inPath}, user.Current, &out)
+	if err != nil {
 		t.Fatalf("run convert failed: %v", err)
 	}
 
 	outPath := filepath.Join(dir, "kick.aif")
-	if _, err := os.Stat(outPath); err != nil {
+
+	_, err = os.Stat(outPath)
+	if err != nil {
 		t.Fatalf("expected output file at %s: %v", outPath, err)
 	}
 

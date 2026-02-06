@@ -80,14 +80,17 @@ func tagFile(path string) error {
 		return fmt.Errorf("couldn't read buffer %s %w", path, err)
 	}
 
-	if err := in.Close(); err != nil {
+	err = in.Close()
+	if err != nil {
 		return fmt.Errorf("failed to close input file %s: %w", path, err)
 	}
 
 	outputDir := filepath.Join(filepath.Dir(path), "wavtagger")
 
 	outPath := filepath.Join(outputDir, filepath.Base(path))
-	if err := os.MkdirAll(outputDir, os.ModePerm); err != nil {
+
+	err = os.MkdirAll(outputDir, os.ModePerm)
+	if err != nil {
 		return fmt.Errorf("failed to create output directory %s: %w", outputDir, err)
 	}
 
@@ -148,7 +151,8 @@ func tagFile(path string) error {
 		encoder.Metadata.Genre = *flagGenre
 	}
 
-	if err := encoder.Close(); err != nil {
+	err = encoder.Close()
+	if err != nil {
 		return fmt.Errorf("failed to close %s - %w", outPath, err)
 	}
 

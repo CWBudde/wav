@@ -50,7 +50,9 @@ func run(args []string, currentUser func() (*user.User, error), out io.Writer) e
 	fs := flag.NewFlagSet("wavtoaiff", flag.ContinueOnError)
 
 	pathFlag := fs.String("path", "", "The path to the wav file to convert to aiff")
-	if err := fs.Parse(args); err != nil {
+
+	err := fs.Parse(args)
+	if err != nil {
 		return fmt.Errorf("failed to parse flags: %w", err)
 	}
 
@@ -121,7 +123,8 @@ func run(args []string, currentUser func() (*user.User, error), out io.Writer) e
 		}
 	}
 
-	if err := encoder.Close(); err != nil {
+	err = encoder.Close()
+	if err != nil {
 		return fmt.Errorf("failed to close AIFF encoder: %w", err)
 	}
 
@@ -144,7 +147,7 @@ func float32ToIntBuffer(data []float32, format *audio.Format, bitDepth int) *aud
 }
 
 func float32ToPCMInt(value float32, bitDepth int) int {
-	value = clampFloat32(value, 1)
+	value = clampFloat32(value)
 
 	switch bitDepth {
 	case 8:
@@ -161,7 +164,7 @@ func float32ToPCMInt(value float32, bitDepth int) int {
 }
 
 func float32ToPCMUint8(value float32) uint8 {
-	value = clampFloat32(value, 1)
+	value = clampFloat32(value)
 
 	scaled := int(math.Round(float64((value + 1.0) * 127.5)))
 	if scaled < 0 {
@@ -176,7 +179,7 @@ func float32ToPCMUint8(value float32) uint8 {
 }
 
 func float32ToPCMInt32(value float32, bitDepth int) int32 {
-	value = clampFloat32(value, 1)
+	value = clampFloat32(value)
 
 	switch bitDepth {
 	case 16:
@@ -201,8 +204,12 @@ func clampScaledPCM(value float32, scale float64, maxVal int64) int32 {
 	return int32(sample)
 }
 
-func clampFloat32(value, maxVal float32) float32 {
-	const minVal = -1.0
+func clampFloat32(value float32) float32 {
+	const (
+		minVal = -1.0
+		maxVal = 1.0
+	)
+
 	if value < minVal {
 		return minVal
 	}

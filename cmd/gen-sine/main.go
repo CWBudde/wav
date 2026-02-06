@@ -24,7 +24,8 @@ func run(args []string) (err error) {
 	frequency := flagSet.Float64("frequency", 440, "frequency in hertz to generate")
 	length := flagSet.Float64("length", 5, "length in seconds of output file")
 
-	if err := flagSet.Parse(args); err != nil {
+	err = flagSet.Parse(args)
+	if err != nil {
 		return fmt.Errorf("failed to parse flags: %w", err)
 	}
 
@@ -52,13 +53,14 @@ func run(args []string) (err error) {
 
 		v := float32(fv)
 
-		err := wavOut.WriteFrame(v)
+		err = wavOut.WriteFrame(v)
 		if err != nil {
 			return fmt.Errorf("failed to write frame: %w", err)
 		}
 	}
 
-	if err := wavOut.Close(); err != nil {
+	err = wavOut.Close()
+	if err != nil {
 		return fmt.Errorf("failed to close encoder: %w", err)
 	}
 

@@ -21,7 +21,8 @@ func (h *testCustomListHandler) CanHandle(chunkID [4]byte, listType [4]byte) boo
 func (h *testCustomListHandler) Decode(_ *Decoder, ch *riff.Chunk) error {
 	h.called = true
 
-	if _, err := io.ReadAll(ch.R); err != nil {
+	_, err := io.ReadAll(ch.R)
+	if err != nil {
 		return fmt.Errorf("failed to read chunk: %w", err)
 	}
 

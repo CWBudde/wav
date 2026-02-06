@@ -58,7 +58,9 @@ func DecodeListChunk(d *Decoder, ch *riff.Chunk) error {
 		reader := bytes.NewReader(buf)
 		// INFO subchunk
 		scratch := make([]byte, 4)
-		if _, err = reader.Read(scratch); err != nil {
+
+		_, err = reader.Read(scratch)
+		if err != nil {
 			return fmt.Errorf("failed to read the INFO subchunk - %w", err)
 		}
 
@@ -118,7 +120,8 @@ func DecodeListChunk(d *Decoder, ch *riff.Chunk) error {
 				scratch = append(make([]byte, int(size)-cap(scratch)), scratch[:cap(scratch)]...)
 			}
 
-			if _, err := reader.Read(scratch); err != nil {
+			_, err = reader.Read(scratch)
+			if err != nil {
 				return fmt.Errorf("read sub header %s data %v: %w", id, scratch, err)
 			}
 

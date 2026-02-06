@@ -49,7 +49,8 @@ func run(args []string, out io.Writer) (err error) {
 	dec := wav.NewDecoder(file)
 	dec.ReadMetadata()
 
-	if err := dec.Err(); err != nil {
+	err = dec.Err()
+	if err != nil {
 		return fmt.Errorf("failed to read metadata: %w", err)
 	}
 

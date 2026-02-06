@@ -19,7 +19,8 @@ func TestDecoder_ReadMetadata_BWFBroadcastChunk(t *testing.T) {
 	dec := NewDecoder(file)
 	dec.ReadMetadata()
 
-	if err := dec.Err(); err != nil {
+	err = dec.Err()
+	if err != nil {
 		t.Fatalf("read metadata: %v", err)
 	}
 
@@ -97,15 +98,18 @@ func TestBroadcastAndCartMetadataRoundTrip(t *testing.T) {
 		Data:   []float32{0, 0.25, -0.25},
 	}
 
-	if err := enc.Write(buf); err != nil {
+	err = enc.Write(buf)
+	if err != nil {
 		t.Fatalf("encode data: %v", err)
 	}
 
-	if err := enc.Close(); err != nil {
+	err = enc.Close()
+	if err != nil {
 		t.Fatalf("close encoder: %v", err)
 	}
 
-	if err := out.Close(); err != nil {
+	err = out.Close()
+	if err != nil {
 		t.Fatalf("close file: %v", err)
 	}
 
@@ -136,7 +140,8 @@ func TestBroadcastAndCartMetadataRoundTrip(t *testing.T) {
 	dec := NewDecoder(in)
 	dec.ReadMetadata()
 
-	if err := dec.Err(); err != nil {
+	err = dec.Err()
+	if err != nil {
 		t.Fatalf("read metadata: %v", err)
 	}
 

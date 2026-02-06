@@ -664,31 +664,34 @@ func (e *Encoder) Close() error {
 	}
 
 	// go back and write total size in header
-	if _, err := e.w.Seek(4, 0); err != nil {
+	_, err := e.w.Seek(4, 0)
+	if err != nil {
 		return fmt.Errorf("failed to seek to file size position: %w", err)
 	}
 
-	err := e.AddLE(uint32(e.WrittenBytes) - 8)
+	err = e.AddLE(uint32(e.WrittenBytes) - 8)
 	if err != nil {
 		return fmt.Errorf("%w when writing the total written bytes", err)
 	}
 
 	// rewrite the audio chunk length header
 	if e.pcmChunkSizePos > 0 {
-		if _, err := e.w.Seek(int64(e.pcmChunkSizePos), 0); err != nil {
+		_, err = e.w.Seek(int64(e.pcmChunkSizePos), 0)
+		if err != nil {
 			return fmt.Errorf("failed to seek to PCM chunk size position: %w", err)
 		}
 
 		chunksize := uint32((e.BitDepth / 8) * e.NumChans * e.frames)
 
-		err := e.AddLE(chunksize)
+		err = e.AddLE(chunksize)
 		if err != nil {
 			return fmt.Errorf("%w when writing wav data chunk size header", err)
 		}
 	}
 
 	// jump back to the end of the file.
-	if _, err := e.w.Seek(0, 2); err != nil {
+	_, err = e.w.Seek(0, 2)
+	if err != nil {
 		return fmt.Errorf("failed to seek to end of file: %w", err)
 	}
 

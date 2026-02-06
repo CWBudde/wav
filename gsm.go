@@ -596,8 +596,9 @@ func (g *gsmDecoder) decodeAllBlocks(r io.Reader, factSamples int) ([]float32, e
 			break
 		}
 
-		if err := validateBlockSize(n, err); err != nil {
-			return nil, err
+		validationErr := validateBlockSize(n, err)
+		if validationErr != nil {
+			return nil, validationErr
 		}
 
 		samples, decErr := g.decodeBlock(block)
