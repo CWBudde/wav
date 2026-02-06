@@ -61,20 +61,20 @@ func NewEncoder(w io.WriteSeeker, sampleRate, bitDepth, numChans, audioFormat in
 
 // NewEncoderFromDecoder creates an encoder initialized from decoder settings.
 // It carries format details and preserved unknown chunks for round-trip flows.
-func NewEncoderFromDecoder(w io.WriteSeeker, d *Decoder) *Encoder {
-	if d == nil {
+func NewEncoderFromDecoder(w io.WriteSeeker, dec *Decoder) *Encoder {
+	if dec == nil {
 		return NewEncoder(w, 0, 0, 0, 0)
 	}
 
-	enc := NewEncoder(w, int(d.SampleRate), int(d.BitDepth), int(d.NumChans), int(d.WavAudioFormat))
-	if d.FmtChunk != nil {
-		enc.FmtChunk = d.FmtChunk.Clone()
+	enc := NewEncoder(w, int(dec.SampleRate), int(dec.BitDepth), int(dec.NumChans), int(dec.WavAudioFormat))
+	if dec.FmtChunk != nil {
+		enc.FmtChunk = dec.FmtChunk.Clone()
 	}
 
-	if len(d.UnknownChunks) > 0 {
-		enc.UnknownChunks = make([]RawChunk, len(d.UnknownChunks))
-		for i := range d.UnknownChunks {
-			enc.UnknownChunks[i] = d.UnknownChunks[i].Clone()
+	if len(dec.UnknownChunks) > 0 {
+		enc.UnknownChunks = make([]RawChunk, len(dec.UnknownChunks))
+		for i := range dec.UnknownChunks {
+			enc.UnknownChunks[i] = dec.UnknownChunks[i].Clone()
 		}
 	}
 

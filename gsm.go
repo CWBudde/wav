@@ -589,18 +589,13 @@ func (g *gsmDecoder) decodeAllBlocks(r io.Reader, factSamples int) ([]float32, e
 
 	for {
 		n, err := io.ReadFull(r, block)
-		if n == 0 || errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF) {
-			if n == 0 {
-				break
-			}
+
+		if shouldStopDecoding(n, err) {
+			break
 		}
 
-		if n < gsmBlockSize {
-			if errors.Is(err, io.ErrUnexpectedEOF) {
-				break
-			}
-
-			return nil, fmt.Errorf("%w: %d bytes", errShortGSMBlockRead, n)
+		if err := validateBlockSize(n, err); err != nil {
+			return nil, err
 		}
 
 		samples, decErr := g.decodeBlock(block)
@@ -608,20 +603,44 @@ func (g *gsmDecoder) decodeAllBlocks(r io.Reader, factSamples int) ([]float32, e
 			return nil, decErr
 		}
 
-		for _, s := range samples {
-			allSamples = append(allSamples, normalizePCMInt(int(s), 16))
-		}
+		g.appendNormalizedSamples(&allSamples, samples)
 
 		if err != nil {
 			break
 		}
 	}
 
-	if factSamples > 0 && len(allSamples) > factSamples {
-		allSamples = allSamples[:factSamples]
+	return g.trimToFactSamples(allSamples, factSamples), nil
+}
+
+func shouldStopDecoding(n int, err error) bool {
+	return n == 0 || (errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF)) && n == 0
+}
+
+func validateBlockSize(n int, err error) error {
+	if n < gsmBlockSize {
+		if errors.Is(err, io.ErrUnexpectedEOF) {
+			return nil
+		}
+
+		return fmt.Errorf("%w: %d bytes", errShortGSMBlockRead, n)
 	}
 
-	return allSamples, nil
+	return nil
+}
+
+func (g *gsmDecoder) appendNormalizedSamples(allSamples *[]float32, samples [gsmSamplesPerBlock]int16) {
+	for _, s := range samples {
+		*allSamples = append(*allSamples, normalizePCMInt(int(s), 16))
+	}
+}
+
+func (g *gsmDecoder) trimToFactSamples(samples []float32, factSamples int) []float32 {
+	if factSamples > 0 && len(samples) > factSamples {
+		return samples[:factSamples]
+	}
+
+	return samples
 }
 
 // decodeToBuffer fills out with decoded float32 samples for streaming PCMBuffer use.

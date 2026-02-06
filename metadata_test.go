@@ -23,9 +23,23 @@ func TestDecoder_ReadMetadata(t *testing.T) {
 		{in: "fixtures/flloop.wav", metadata: &Metadata{
 			Software: "FL Studio (beta)",
 			CuePoints: []*CuePoint{
-				0:  {ID: [4]uint8{0x1, 0x0, 0x0, 0x0}, Position: 0x0, DataChunkID: [4]uint8{'d', 'a', 't', 'a'}},
-				1:  {ID: [4]uint8{0x2, 0x0, 0x0, 0x0}, Position: 0x1a5e, DataChunkID: [4]uint8{'d', 'a', 't', 'a'}, SampleOffset: 0x1a5e},
-				2:  {ID: [4]uint8{0x3, 0x0, 0x0, 0x0}, Position: 0x34bc, DataChunkID: [4]uint8{'d', 'a', 't', 'a'}, SampleOffset: 0x34bc},
+				0: {
+					ID:          [4]uint8{0x1, 0x0, 0x0, 0x0},
+					Position:    0x0,
+					DataChunkID: [4]uint8{'d', 'a', 't', 'a'},
+				},
+				1: {
+					ID:           [4]uint8{0x2, 0x0, 0x0, 0x0},
+					Position:     0x1a5e,
+					DataChunkID:  [4]uint8{'d', 'a', 't', 'a'},
+					SampleOffset: 0x1a5e,
+				},
+				2: {
+					ID:           [4]uint8{0x3, 0x0, 0x0, 0x0},
+					Position:     0x34bc,
+					DataChunkID:  [4]uint8{'d', 'a', 't', 'a'},
+					SampleOffset: 0x34bc,
+				},
 				3:  {ID: [4]uint8{0x4, 0x0, 0x0, 0x0}, Position: 0x4f1a, DataChunkID: [4]uint8{'d', 'a', 't', 'a'}, SampleOffset: 0x4f1a},
 				4:  {ID: [4]uint8{0x5, 0x0, 0x0, 0x0}, Position: 0x6978, DataChunkID: [4]uint8{'d', 'a', 't', 'a'}, SampleOffset: 0x6978},
 				5:  {ID: [4]uint8{0x6, 0x0, 0x0, 0x0}, Position: 0x83d6, DataChunkID: [4]uint8{0x64, 0x61, 0x74, 0x61}, SampleOffset: 0x83d6},

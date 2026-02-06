@@ -209,13 +209,13 @@ func TestEncoderWriteIEEEFloat64RoundTrip(t *testing.T) {
 		t.Fatalf("close output: %v", err)
 	}
 
-	f, err := os.Open(outPath)
+	file, err := os.Open(outPath)
 	if err != nil {
 		t.Fatalf("open encoded file: %v", err)
 	}
-	defer f.Close()
+	defer file.Close()
 
-	dec := NewDecoder(f)
+	dec := NewDecoder(file)
 
 	buf, err := dec.FullPCMBuffer()
 	if err != nil {
@@ -325,13 +325,13 @@ func TestEncoderWriteG711RoundTrip(t *testing.T) {
 				t.Fatalf("close output: %v", err)
 			}
 
-			f, err := os.Open(outPath)
+			file, err := os.Open(outPath)
 			if err != nil {
 				t.Fatalf("open encoded file: %v", err)
 			}
-			defer f.Close()
+			defer file.Close()
 
-			dec := NewDecoder(f)
+			dec := NewDecoder(file)
 
 			buf, err := dec.FullPCMBuffer()
 			if err != nil {

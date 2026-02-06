@@ -172,72 +172,40 @@ func encodeInfoChunk(e *Encoder) []byte {
 	buf := bytes.NewBuffer(nil)
 
 	writeSection := func(id [4]byte, val string) {
+		if val == "" {
+			return
+		}
+
 		buf.Write(id[:])
 		binary.Write(buf, binary.LittleEndian, uint32(len(val)+1))
 		buf.Write(append([]byte(val), 0x00))
 	}
-	if e.Metadata.Artist != "" {
-		writeSection(markerIART, e.Metadata.Artist)
+
+	// Table-driven approach to reduce cyclomatic complexity
+	fields := []struct {
+		marker [4]byte
+		value  string
+	}{
+		{markerIART, e.Metadata.Artist},
+		{markerICMT, e.Metadata.Comments},
+		{markerICOP, e.Metadata.Copyright},
+		{markerICRD, e.Metadata.CreationDate},
+		{markerIENG, e.Metadata.Engineer},
+		{markerITCH, e.Metadata.Technician},
+		{markerIGNR, e.Metadata.Genre},
+		{markerIKEY, e.Metadata.Keywords},
+		{markerIMED, e.Metadata.Medium},
+		{markerINAM, e.Metadata.Title},
+		{markerIPRD, e.Metadata.Product},
+		{markerISBJ, e.Metadata.Subject},
+		{markerISFT, e.Metadata.Software},
+		{markerISRC, e.Metadata.Source},
+		{markerIARL, e.Metadata.Location},
+		{markerITRK, e.Metadata.TrackNbr},
 	}
 
-	if e.Metadata.Comments != "" {
-		writeSection(markerICMT, e.Metadata.Comments)
-	}
-
-	if e.Metadata.Copyright != "" {
-		writeSection(markerICOP, e.Metadata.Copyright)
-	}
-
-	if e.Metadata.CreationDate != "" {
-		writeSection(markerICRD, e.Metadata.CreationDate)
-	}
-
-	if e.Metadata.Engineer != "" {
-		writeSection(markerIENG, e.Metadata.Engineer)
-	}
-
-	if e.Metadata.Technician != "" {
-		writeSection(markerITCH, e.Metadata.Technician)
-	}
-
-	if e.Metadata.Genre != "" {
-		writeSection(markerIGNR, e.Metadata.Genre)
-	}
-
-	if e.Metadata.Keywords != "" {
-		writeSection(markerIKEY, e.Metadata.Keywords)
-	}
-
-	if e.Metadata.Medium != "" {
-		writeSection(markerIMED, e.Metadata.Medium)
-	}
-
-	if e.Metadata.Title != "" {
-		writeSection(markerINAM, e.Metadata.Title)
-	}
-
-	if e.Metadata.Product != "" {
-		writeSection(markerIPRD, e.Metadata.Product)
-	}
-
-	if e.Metadata.Subject != "" {
-		writeSection(markerISBJ, e.Metadata.Subject)
-	}
-
-	if e.Metadata.Software != "" {
-		writeSection(markerISFT, e.Metadata.Software)
-	}
-
-	if e.Metadata.Source != "" {
-		writeSection(markerISRC, e.Metadata.Source)
-	}
-
-	if e.Metadata.Location != "" {
-		writeSection(markerIARL, e.Metadata.Location)
-	}
-
-	if e.Metadata.TrackNbr != "" {
-		writeSection(markerITRK, e.Metadata.TrackNbr)
+	for _, field := range fields {
+		writeSection(field.marker, field.value)
 	}
 
 	return append(CIDInfo, buf.Bytes()...)

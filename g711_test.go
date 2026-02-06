@@ -29,18 +29,18 @@ func TestSearchSegment(t *testing.T) {
 func TestMuLawRoundTrip(t *testing.T) {
 	values := []int16{0, 100, -100, 1000, -1000, 8000, -8000, 32000, -32000}
 
-	for _, v := range values {
-		encoded := encodeMuLawSample(v)
+	for _, val := range values {
+		encoded := encodeMuLawSample(val)
 		decoded := decodeMuLawSample(encoded)
 
 		// mu-law is lossy, but round-trip should be close
-		diff := int(v) - int(decoded)
+		diff := int(val) - int(decoded)
 		if diff < 0 {
 			diff = -diff
 		}
 
 		// Allow larger tolerance for larger values
-		tolerance := int(v) / 8
+		tolerance := int(val) / 8
 		if tolerance < 0 {
 			tolerance = -tolerance
 		}
@@ -50,7 +50,7 @@ func TestMuLawRoundTrip(t *testing.T) {
 		}
 
 		if diff > tolerance {
-			t.Fatalf("mu-law round-trip failed for %d: encoded=%d, decoded=%d, diff=%d", v, encoded, decoded, diff)
+			t.Fatalf("mu-law round-trip failed for %d: encoded=%d, decoded=%d, diff=%d", val, encoded, decoded, diff)
 		}
 	}
 }
@@ -58,16 +58,16 @@ func TestMuLawRoundTrip(t *testing.T) {
 func TestALawRoundTrip(t *testing.T) {
 	values := []int16{0, 100, -100, 1000, -1000, 8000, -8000, 32000, -32000}
 
-	for _, v := range values {
-		encoded := encodeALawSample(v)
+	for _, val := range values {
+		encoded := encodeALawSample(val)
 		decoded := decodeALawSample(encoded)
 
-		diff := int(v) - int(decoded)
+		diff := int(val) - int(decoded)
 		if diff < 0 {
 			diff = -diff
 		}
 
-		tolerance := int(v) / 8
+		tolerance := int(val) / 8
 		if tolerance < 0 {
 			tolerance = -tolerance
 		}
@@ -77,7 +77,7 @@ func TestALawRoundTrip(t *testing.T) {
 		}
 
 		if diff > tolerance {
-			t.Fatalf("A-law round-trip failed for %d: encoded=%d, decoded=%d, diff=%d", v, encoded, decoded, diff)
+			t.Fatalf("A-law round-trip failed for %d: encoded=%d, decoded=%d, diff=%d", val, encoded, decoded, diff)
 		}
 	}
 }

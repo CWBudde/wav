@@ -92,7 +92,9 @@ func tagFile(path string) error {
 		int(decoder.BitDepth),
 		buf.Format.NumChannels,
 		int(decoder.WavAudioFormat))
-	if err := encoder.Write(buf); err != nil {
+
+	err = encoder.Write(buf)
+	if err != nil {
 		return fmt.Errorf("failed to write audio buffer - %w", err)
 	}
 

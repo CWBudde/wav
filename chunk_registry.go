@@ -47,7 +47,7 @@ func (r *ChunkRegistry) Register(handler ChunkHandler) {
 }
 
 // Decode dispatches a chunk to the first matching handler.
-func (r *ChunkRegistry) Decode(d *Decoder, chnk *riff.Chunk) (bool, error) {
+func (r *ChunkRegistry) Decode(dec *Decoder, chnk *riff.Chunk) (bool, error) {
 	if r == nil || chnk == nil {
 		return false, nil
 	}
@@ -59,7 +59,7 @@ func (r *ChunkRegistry) Decode(d *Decoder, chnk *riff.Chunk) (bool, error) {
 
 	for _, handler := range r.handlers {
 		if handler.CanHandle(chnk.ID, listType) {
-			return true, handler.Decode(d, chnk)
+			return true, handler.Decode(dec, chnk)
 		}
 	}
 
@@ -94,19 +94,19 @@ func (h *factChunkHandler) CanHandle(chunkID [4]byte, _ [4]byte) bool {
 	return chunkID == CIDFact
 }
 
-func (h *factChunkHandler) Decode(d *Decoder, ch *riff.Chunk) error {
-	if d == nil || ch == nil {
+func (h *factChunkHandler) Decode(dec *Decoder, chunk *riff.Chunk) error {
+	if dec == nil || chunk == nil {
 		return nil
 	}
 
 	var sampleCount uint32
 
-	err := ch.ReadLE(&sampleCount)
+	err := chunk.ReadLE(&sampleCount)
 	if err == nil {
-		d.CompressedSamples = sampleCount
+		dec.CompressedSamples = sampleCount
 	}
 
-	ch.Drain()
+	chunk.Drain()
 
 	return nil
 }

@@ -4,7 +4,7 @@ import "testing"
 
 func TestDecoderChunkAPIs(t *testing.T) {
 	subFormat := makeSubFormatGUID(wavFormatPCM)
-	d := &Decoder{
+	dec := &Decoder{
 		FmtChunk: &FmtChunk{
 			FormatTag: wavFormatExtensible,
 			Extensible: &FmtExtensible{
@@ -18,48 +18,48 @@ func TestDecoderChunkAPIs(t *testing.T) {
 		},
 	}
 
-	gotFmt := d.FormatChunk()
+	gotFmt := dec.FormatChunk()
 	if gotFmt == nil || gotFmt.Extensible == nil {
 		t.Fatal("expected fmt chunk copy")
 	}
 
-	if gotFmt == d.FmtChunk {
+	if gotFmt == dec.FmtChunk {
 		t.Fatal("format chunk should be copied")
 	}
 
 	gotFmt.Extensible.ChannelMask = 0x4
-	if d.FmtChunk.Extensible.ChannelMask != 0x3 {
+	if dec.FmtChunk.Extensible.ChannelMask != 0x3 {
 		t.Fatal("format chunk copy should not mutate decoder")
 	}
 
-	raw := d.RawChunks()
+	raw := dec.RawChunks()
 	if len(raw) != 1 {
 		t.Fatalf("expected 1 raw chunk, got %d", len(raw))
 	}
 
 	raw[0].Data[0] = 9
-	if d.UnknownChunks[0].Data[0] != 1 {
+	if dec.UnknownChunks[0].Data[0] != 1 {
 		t.Fatal("raw chunks should be copied")
 	}
 
-	d.SetRawChunks([]RawChunk{{ID: [4]byte{'x', 't', 'r', 'a'}, Data: []byte{7, 8}}})
+	dec.SetRawChunks([]RawChunk{{ID: [4]byte{'x', 't', 'r', 'a'}, Data: []byte{7, 8}}})
 
-	if len(d.UnknownChunks) != 1 || d.UnknownChunks[0].ID != [4]byte{'x', 't', 'r', 'a'} {
-		t.Fatalf("set raw chunks failed: %+v", d.UnknownChunks)
+	if len(dec.UnknownChunks) != 1 || dec.UnknownChunks[0].ID != [4]byte{'x', 't', 'r', 'a'} {
+		t.Fatalf("set raw chunks failed: %+v", dec.UnknownChunks)
 	}
 
 	in := []RawChunk{{ID: [4]byte{'t', 'e', 's', 't'}, Data: []byte{4, 5, 6}}}
-	d.SetRawChunks(in)
+	dec.SetRawChunks(in)
 
 	in[0].Data[0] = 0
-	if d.UnknownChunks[0].Data[0] != 4 {
+	if dec.UnknownChunks[0].Data[0] != 4 {
 		t.Fatal("SetRawChunks should copy input")
 	}
 }
 
 func TestEncoderChunkAPIs(t *testing.T) {
 	subFormat := makeSubFormatGUID(wavFormatPCM)
-	e := &Encoder{
+	enc := &Encoder{
 		FmtChunk: &FmtChunk{
 			FormatTag: wavFormatExtensible,
 			Extensible: &FmtExtensible{
@@ -73,41 +73,41 @@ func TestEncoderChunkAPIs(t *testing.T) {
 		},
 	}
 
-	gotFmt := e.FormatChunk()
+	gotFmt := enc.FormatChunk()
 	if gotFmt == nil || gotFmt.Extensible == nil {
 		t.Fatal("expected fmt chunk copy")
 	}
 
-	if gotFmt == e.FmtChunk {
+	if gotFmt == enc.FmtChunk {
 		t.Fatal("format chunk should be copied")
 	}
 
 	gotFmt.Extensible.ChannelMask = 0x4
-	if e.FmtChunk.Extensible.ChannelMask != 0x3 {
+	if enc.FmtChunk.Extensible.ChannelMask != 0x3 {
 		t.Fatal("format chunk copy should not mutate encoder")
 	}
 
-	raw := e.RawChunks()
+	raw := enc.RawChunks()
 	if len(raw) != 1 {
 		t.Fatalf("expected 1 raw chunk, got %d", len(raw))
 	}
 
 	raw[0].Data[0] = 9
-	if e.UnknownChunks[0].Data[0] != 1 {
+	if enc.UnknownChunks[0].Data[0] != 1 {
 		t.Fatal("raw chunks should be copied")
 	}
 
-	e.SetRawChunks([]RawChunk{{ID: [4]byte{'x', 't', 'r', 'a'}, Data: []byte{7, 8}}})
+	enc.SetRawChunks([]RawChunk{{ID: [4]byte{'x', 't', 'r', 'a'}, Data: []byte{7, 8}}})
 
-	if len(e.UnknownChunks) != 1 || e.UnknownChunks[0].ID != [4]byte{'x', 't', 'r', 'a'} {
-		t.Fatalf("set raw chunks failed: %+v", e.UnknownChunks)
+	if len(enc.UnknownChunks) != 1 || enc.UnknownChunks[0].ID != [4]byte{'x', 't', 'r', 'a'} {
+		t.Fatalf("set raw chunks failed: %+v", enc.UnknownChunks)
 	}
 
 	in := []RawChunk{{ID: [4]byte{'t', 'e', 's', 't'}, Data: []byte{4, 5, 6}}}
-	e.SetRawChunks(in)
+	enc.SetRawChunks(in)
 
 	in[0].Data[0] = 0
-	if e.UnknownChunks[0].Data[0] != 4 {
+	if enc.UnknownChunks[0].Data[0] != 4 {
 		t.Fatal("SetRawChunks should copy input")
 	}
 }

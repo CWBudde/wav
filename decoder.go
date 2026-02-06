@@ -314,32 +314,40 @@ func (d *Decoder) FullPCMBuffer() (*audio.Float32Buffer, error) {
 	}
 
 	if d.WavAudioFormat == wavFormatGSM610 {
-		dec := newGSMDecoder(int(d.CompressedSamples))
-
-		samples, err := dec.decodeAllBlocks(d.PCMChunk.R, int(d.CompressedSamples))
-		if err != nil {
-			return nil, err
-		}
-
-		return &audio.Float32Buffer{
-			Data:           samples,
-			Format:         format,
-			SourceBitDepth: 16,
-		}, nil
+		return d.decodeGSMBuffer(format)
 	}
 
 	if isUnsupportedCompressedFormat(d.WavAudioFormat) {
 		return nil, unsupportedCompressedFormatError(d.WavAudioFormat)
 	}
 
+	return d.decodePCMBuffer(format)
+}
+
+func (d *Decoder) decodeGSMBuffer(format *audio.Format) (*audio.Float32Buffer, error) {
+	dec := newGSMDecoder(int(d.CompressedSamples))
+
+	samples, err := dec.decodeAllBlocks(d.PCMChunk.R, int(d.CompressedSamples))
+	if err != nil {
+		return nil, err
+	}
+
+	return &audio.Float32Buffer{
+		Data:           samples,
+		Format:         format,
+		SourceBitDepth: 16,
+	}, nil
+}
+
+func (d *Decoder) decodePCMBuffer(format *audio.Format) (*audio.Float32Buffer, error) {
 	buf := &audio.Float32Buffer{
 		Data:           make([]float32, 4096),
 		Format:         format,
 		SourceBitDepth: int(d.BitDepth),
 	}
 
-	bytesPerSample := bytesPerSample(int(d.BitDepth))
-	sampleBufData := make([]byte, bytesPerSample)
+	bPerSample := bytesPerSample(int(d.BitDepth))
+	sampleBufData := make([]byte, bPerSample)
 
 	decodeF, err := sampleDecodeFloat32Func(int(d.BitDepth), d.WavAudioFormat)
 	if err != nil {
@@ -354,7 +362,6 @@ func (d *Decoder) FullPCMBuffer() (*audio.Float32Buffer, error) {
 		}
 
 		i++
-		// grow the underlying slice if needed
 		if i == len(buf.Data) {
 			buf.Data = append(buf.Data, make([]float32, 4096)...)
 		}
@@ -511,13 +518,13 @@ func (d *Decoder) NextChunk() (*riff.Chunk, error) {
 		size++
 	}
 
-	c := &riff.Chunk{
+	chnk := &riff.Chunk{
 		ID:   id,
 		Size: int(size),
 		R:    io.LimitReader(d.r, int64(size)),
 	}
 
-	return c, d.err
+	return chnk, d.err
 }
 
 // Duration returns the time duration for the current audio container.
@@ -572,35 +579,49 @@ func (d *Decoder) readHeaders() error {
 		}
 
 		if chunk.ID == riff.FmtID {
-			fmtChunk, err := decodeWavHeaderChunk(chunk, d.parser)
+			err := d.processFmtChunk(chunk, rewindBytes)
 			if err != nil {
-				return fmt.Errorf("failed to decode fmt chunk: %w", err)
-			}
-
-			d.FmtChunk = fmtChunk
-
-			d.NumChans = d.parser.NumChannels
-			d.BitDepth = d.parser.BitsPerSample
-			d.SampleRate = d.parser.SampleRate
-			d.WavAudioFormat = d.parser.WavAudioFormat
-			d.AvgBytesPerSec = d.parser.AvgBytesPerSec
-
-			if rewindBytes > 0 {
-				d.r.Seek(-(rewindBytes + int64(chunk.Size) + 8), 1)
+				return err
 			}
 
 			break
-		} else if handled, _ := d.decodeHeaderChunkViaRegistry(chunk); handled {
-			rewindBytes += int64(chunk.Size) + 8
-		} else {
-			// unexpected chunk order, might be a bext chunk
-			rewindBytes += int64(chunk.Size) + 8
-			// drain the chunk
-			io.CopyN(io.Discard, d.r, int64(chunk.Size))
 		}
+
+		d.processNonFmtChunk(chunk, &rewindBytes)
 	}
 
 	return d.err
+}
+
+func (d *Decoder) processFmtChunk(chunk *riff.Chunk, rewindBytes int64) error {
+	fmtChunk, err := decodeWavHeaderChunk(chunk, d.parser)
+	if err != nil {
+		return fmt.Errorf("failed to decode fmt chunk: %w", err)
+	}
+
+	d.FmtChunk = fmtChunk
+	d.NumChans = d.parser.NumChannels
+	d.BitDepth = d.parser.BitsPerSample
+	d.SampleRate = d.parser.SampleRate
+	d.WavAudioFormat = d.parser.WavAudioFormat
+	d.AvgBytesPerSec = d.parser.AvgBytesPerSec
+
+	if rewindBytes > 0 {
+		d.r.Seek(-(rewindBytes + int64(chunk.Size) + 8), 1)
+	}
+
+	return nil
+}
+
+func (d *Decoder) processNonFmtChunk(chunk *riff.Chunk, rewindBytes *int64) {
+	if handled, _ := d.decodeHeaderChunkViaRegistry(chunk); handled {
+		*rewindBytes += int64(chunk.Size) + 8
+	} else {
+		// unexpected chunk order, might be a bext chunk
+		*rewindBytes += int64(chunk.Size) + 8
+		// drain the chunk
+		io.CopyN(io.Discard, d.r, int64(chunk.Size))
+	}
 }
 
 func (d *Decoder) decodeChunkViaRegistry(chunk *riff.Chunk) (bool, error) {

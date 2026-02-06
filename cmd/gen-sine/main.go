@@ -24,7 +24,8 @@ func run(args []string) error {
 	frequency := flagSet.Float64("frequency", 440, "frequency in hertz to generate")
 	length := flagSet.Float64("length", 5, "length in seconds of output file")
 
-	if err := flagSet.Parse(args); err != nil {
+	err := flagSet.Parse(args)
+	if err != nil {
 		return err
 	}
 

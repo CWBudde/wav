@@ -549,37 +549,37 @@ func TestDecoder_UnsupportedCompressedFormats(t *testing.T) {
 			}
 			defer f.Close()
 
-			d := NewDecoder(f)
+			dec := NewDecoder(f)
 
 			// File structure is valid WAV even though codec is unsupported
-			if !d.IsValidFile() {
+			if !dec.IsValidFile() {
 				t.Fatalf("expected %s to be a valid WAV file", testCase.path)
 			}
 
-			if d.WavAudioFormat != testCase.formatCode {
-				t.Fatalf("expected format %d, got %d", testCase.formatCode, d.WavAudioFormat)
+			if dec.WavAudioFormat != testCase.formatCode {
+				t.Fatalf("expected format %d, got %d", testCase.formatCode, dec.WavAudioFormat)
 			}
 
 			// FullPCMBuffer must return ErrUnsupportedCompressedFormat
-			_, err = d.FullPCMBuffer()
+			_, err = dec.FullPCMBuffer()
 			if !errors.Is(err, ErrUnsupportedCompressedFormat) {
 				t.Fatalf("FullPCMBuffer: expected ErrUnsupportedCompressedFormat, got %v", err)
 			}
 
 			// PCMBuffer must also return ErrUnsupportedCompressedFormat
-			if err := d.Rewind(); err != nil {
+			if err := dec.Rewind(); err != nil {
 				t.Fatalf("rewind failed: %v", err)
 			}
 
 			buf := &audio.Float32Buffer{
 				Format: &audio.Format{
-					NumChannels: int(d.NumChans),
-					SampleRate:  int(d.SampleRate),
+					NumChannels: int(dec.NumChans),
+					SampleRate:  int(dec.SampleRate),
 				},
 				Data: make([]float32, 2048),
 			}
 
-			_, err = d.PCMBuffer(buf)
+			_, err = dec.PCMBuffer(buf)
 			if !errors.Is(err, ErrUnsupportedCompressedFormat) {
 				t.Fatalf("PCMBuffer: expected ErrUnsupportedCompressedFormat, got %v", err)
 			}
@@ -850,16 +850,16 @@ func TestDecoder_EdgeCases(t *testing.T) {
 			}
 			defer file.Close()
 
-			d := NewDecoder(file)
+			dec := NewDecoder(file)
 			// Should be able to read basic info
-			d.ReadInfo()
+			dec.ReadInfo()
 
-			if err := d.Err(); err != nil {
+			if err := dec.Err(); err != nil {
 				t.Fatalf("unexpected error reading info: %v", err)
 			}
 
 			// Should be able to decode PCM data
-			buf, err := d.FullPCMBuffer()
+			buf, err := dec.FullPCMBuffer()
 			if err != nil {
 				t.Fatalf("unexpected error reading PCM: %v", err)
 			}
@@ -1121,10 +1121,10 @@ func TestDecoder_Format(t *testing.T) {
 	}
 	defer file.Close()
 
-	d := NewDecoder(file)
-	d.ReadInfo()
+	dec := NewDecoder(file)
+	dec.ReadInfo()
 
-	f := d.Format()
+	f := dec.Format()
 	if f == nil {
 		t.Fatal("Format should not be nil")
 	}
@@ -1263,34 +1263,34 @@ func TestDecoder_WasPCMAccessed(t *testing.T) {
 	}
 	defer file.Close()
 
-	d := NewDecoder(file)
+	dec := NewDecoder(file)
 
-	if d.WasPCMAccessed() {
+	if dec.WasPCMAccessed() {
 		t.Fatal("WasPCMAccessed should be false before accessing PCM")
 	}
 
-	_, err = d.FullPCMBuffer()
+	_, err = dec.FullPCMBuffer()
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if !d.WasPCMAccessed() {
+	if !dec.WasPCMAccessed() {
 		t.Fatal("WasPCMAccessed should be true after reading PCM")
 	}
 }
 
 func TestDecoder_InvalidFileHeader(t *testing.T) {
-	f, err := os.CreateTemp(t.TempDir(), "badwav*.wav")
+	file, err := os.CreateTemp(t.TempDir(), "badwav*.wav")
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer os.Remove(f.Name())
-	defer f.Close()
+	defer os.Remove(file.Name())
+	defer file.Close()
 
-	f.WriteString("NOT_RIFF_HEADER_DATA")
-	f.Seek(0, 0)
+	file.WriteString("NOT_RIFF_HEADER_DATA")
+	file.Seek(0, 0)
 
-	d := NewDecoder(f)
+	d := NewDecoder(file)
 
 	if d.IsValidFile() {
 		t.Fatal("expected invalid file for garbage data")

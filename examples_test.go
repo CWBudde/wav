@@ -103,6 +103,7 @@ func ExampleDecoder_ReadMetadata() {
 	decoder.ReadMetadata()
 
 	if decoder.Err() != nil {
+		file.Close()
 		log.Fatal(err)
 	}
 

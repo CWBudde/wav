@@ -74,19 +74,19 @@ func TestGsmFixedPointArithmetic(t *testing.T) {
 }
 
 func TestGsmUnpackBlock(t *testing.T) {
-	f, err := os.Open("fixtures/addf8-GSM-GW.wav")
+	file, err := os.Open("fixtures/addf8-GSM-GW.wav")
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer f.Close()
+	defer file.Close()
 
-	d := NewDecoder(f)
-	if err := d.FwdToPCM(); err != nil {
+	dec := NewDecoder(file)
+	if err := dec.FwdToPCM(); err != nil {
 		t.Fatal(err)
 	}
 
 	block := make([]byte, gsmBlockSize)
-	if _, err := d.PCMChunk.R.Read(block); err != nil {
+	if _, err := dec.PCMChunk.R.Read(block); err != nil {
 		t.Fatal(err)
 	}
 

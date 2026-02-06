@@ -34,10 +34,10 @@ func TestChunkRegistryFactDecode(t *testing.T) {
 	payload := make([]byte, 4)
 	binary.LittleEndian.PutUint32(payload, sampleCount)
 
-	d := NewDecoder(bytes.NewReader(nil))
+	dec := NewDecoder(bytes.NewReader(nil))
 	ch := &riff.Chunk{ID: CIDFact, Size: 4, R: bytes.NewReader(payload)}
 
-	handled, err := d.decodeChunkViaRegistry(ch)
+	handled, err := dec.decodeChunkViaRegistry(ch)
 	if err != nil {
 		t.Fatalf("decode chunk via registry: %v", err)
 	}
@@ -46,15 +46,15 @@ func TestChunkRegistryFactDecode(t *testing.T) {
 		t.Fatal("expected fact chunk to be handled")
 	}
 
-	if d.CompressedSamples != sampleCount {
-		t.Fatalf("compressed samples mismatch: got %d want %d", d.CompressedSamples, sampleCount)
+	if dec.CompressedSamples != sampleCount {
+		t.Fatalf("compressed samples mismatch: got %d want %d", dec.CompressedSamples, sampleCount)
 	}
 }
 
 func TestChunkRegistrySupportsCustomListHandler(t *testing.T) {
-	h := &testCustomListHandler{}
+	handler := &testCustomListHandler{}
 	registry := &ChunkRegistry{}
-	registry.Register(h)
+	registry.Register(handler)
 
 	d := NewDecoder(bytes.NewReader(nil))
 	d.chunks = registry
@@ -70,7 +70,7 @@ func TestChunkRegistrySupportsCustomListHandler(t *testing.T) {
 		t.Fatal("expected custom LIST handler to be selected")
 	}
 
-	if !h.called {
+	if !handler.called {
 		t.Fatal("expected custom LIST handler to be called")
 	}
 }
