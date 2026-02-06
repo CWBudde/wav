@@ -33,8 +33,8 @@ var (
 
 // Fixed-point arithmetic helpers (16-bit with saturation).
 
-func gsmAdd(a, b int16) int16 {
-	sum := int32(a) + int32(b)
+func gsmAdd(left, right int16) int16 {
+	sum := int32(left) + int32(right)
 	if sum > 32767 {
 		return 32767
 	}
@@ -46,8 +46,8 @@ func gsmAdd(a, b int16) int16 {
 	return int16(sum)
 }
 
-func gsmSub(a, b int16) int16 {
-	diff := int32(a) - int32(b)
+func gsmSub(left, right int16) int16 {
+	diff := int32(left) - int32(right)
 	if diff > 32767 {
 		return 32767
 	}
@@ -59,59 +59,59 @@ func gsmSub(a, b int16) int16 {
 	return int16(diff)
 }
 
-func gsmMultR(a, b int16) int16 {
-	if a == -32768 && b == -32768 {
+func gsmMultR(left, right int16) int16 {
+	if left == -32768 && right == -32768 {
 		return 32767
 	}
 
-	return int16((int32(a)*int32(b) + 16384) >> 15)
+	return int16((int32(left)*int32(right) + 16384) >> 15)
 }
 
-func gsmAbs(a int16) int16 {
-	if a == -32768 {
+func gsmAbs(value int16) int16 {
+	if value == -32768 {
 		return 32767
 	}
 
-	if a < 0 {
-		return -a
+	if value < 0 {
+		return -value
 	}
 
-	return a
+	return value
 }
 
 // Signed arithmetic shift right (arithmetic, preserves sign).
-func sasr(x int16, n uint) int16 {
-	return int16(int32(x) >> n)
+func sasr(value int16, shiftBits uint) int16 {
+	return int16(int32(value) >> shiftBits)
 }
 
 // gsmAsl performs arithmetic shift left with saturation.
-func gsmAsl(a int16, n int16) int16 {
-	if n <= 0 {
-		return a
+func gsmAsl(value int16, shiftBits int16) int16 {
+	if shiftBits <= 0 {
+		return value
 	}
 
-	if n >= 16 {
+	if shiftBits >= 16 {
 		return 0
 	}
 
-	return int16(int32(a) << uint(n))
+	return int16(int32(value) << uint(shiftBits))
 }
 
 // gsmAsr performs arithmetic shift right.
-func gsmAsr(a int16, n int16) int16 {
-	if n <= 0 {
-		return a
+func gsmAsr(value int16, shiftBits int16) int16 {
+	if shiftBits <= 0 {
+		return value
 	}
 
-	if n >= 16 {
-		if a < 0 {
+	if shiftBits >= 16 {
+		if value < 0 {
 			return -1
 		}
 
 		return 0
 	}
 
-	return int16(int32(a) >> uint(n))
+	return int16(int32(value) >> uint(shiftBits))
 }
 
 // GSM frame parameter structures.
@@ -162,169 +162,169 @@ func unpackWAV49Block(data []byte) (f1, f2 gsmFrame, err error) {
 	}
 
 	// Frame 1: bytes 0..32 (260 bits = 32.5 bytes)
-	c := 0
+	byteIndex := 0
 
-	var sr uint16
+	var shiftReg uint16
 
-	sr = uint16(data[c])
-	c++
-	f1.LAR[0] = int16(sr & 0x3f)
-	sr >>= 6
-	sr |= uint16(data[c]) << 2
-	c++
-	f1.LAR[1] = int16(sr & 0x3f)
-	sr >>= 6
-	sr |= uint16(data[c]) << 4
-	c++
-	f1.LAR[2] = int16(sr & 0x1f)
-	sr >>= 5
-	f1.LAR[3] = int16(sr & 0x1f)
-	sr >>= 5
-	sr |= uint16(data[c]) << 2
-	c++
-	f1.LAR[4] = int16(sr & 0xf)
-	sr >>= 4
-	f1.LAR[5] = int16(sr & 0xf)
-	sr >>= 4
-	sr |= uint16(data[c]) << 2
-	c++ // byte 4
-	f1.LAR[6] = int16(sr & 0x7)
-	sr >>= 3
-	f1.LAR[7] = int16(sr & 0x7)
-	sr >>= 3
+	shiftReg = uint16(data[byteIndex])
+	byteIndex++
+	f1.LAR[0] = int16(shiftReg & 0x3f)
+	shiftReg >>= 6
+	shiftReg |= uint16(data[byteIndex]) << 2
+	byteIndex++
+	f1.LAR[1] = int16(shiftReg & 0x3f)
+	shiftReg >>= 6
+	shiftReg |= uint16(data[byteIndex]) << 4
+	byteIndex++
+	f1.LAR[2] = int16(shiftReg & 0x1f)
+	shiftReg >>= 5
+	f1.LAR[3] = int16(shiftReg & 0x1f)
+	shiftReg >>= 5
+	shiftReg |= uint16(data[byteIndex]) << 2
+	byteIndex++
+	f1.LAR[4] = int16(shiftReg & 0xf)
+	shiftReg >>= 4
+	f1.LAR[5] = int16(shiftReg & 0xf)
+	shiftReg >>= 4
+	shiftReg |= uint16(data[byteIndex]) << 2
+	byteIndex++ // byte 4
+	f1.LAR[6] = int16(shiftReg & 0x7)
+	shiftReg >>= 3
+	f1.LAR[7] = int16(shiftReg & 0x7)
+	shiftReg >>= 3
 
 	// Subframes 0-3 for frame 1
-	for s := range 4 {
-		sr |= uint16(data[c]) << 4
-		c++
-		f1.sub[s].Nc = int16(sr & 0x7f)
-		sr >>= 7
-		f1.sub[s].bc = int16(sr & 0x3)
-		sr >>= 2
-		f1.sub[s].Mc = int16(sr & 0x3)
-		sr >>= 2
-		sr |= uint16(data[c]) << 1
-		c++
-		f1.sub[s].xmaxc = int16(sr & 0x3f)
-		sr >>= 6
-		f1.sub[s].xMc[0] = int16(sr & 0x7)
-		sr >>= 3
-		sr = uint16(data[c])
-		c++
-		f1.sub[s].xMc[1] = int16(sr & 0x7)
-		sr >>= 3
-		f1.sub[s].xMc[2] = int16(sr & 0x7)
-		sr >>= 3
-		sr |= uint16(data[c]) << 2
-		c++
-		f1.sub[s].xMc[3] = int16(sr & 0x7)
-		sr >>= 3
-		f1.sub[s].xMc[4] = int16(sr & 0x7)
-		sr >>= 3
-		f1.sub[s].xMc[5] = int16(sr & 0x7)
-		sr >>= 3
-		sr |= uint16(data[c]) << 1
-		c++
-		f1.sub[s].xMc[6] = int16(sr & 0x7)
-		sr >>= 3
-		f1.sub[s].xMc[7] = int16(sr & 0x7)
-		sr >>= 3
-		f1.sub[s].xMc[8] = int16(sr & 0x7)
-		sr >>= 3
-		sr = uint16(data[c])
-		c++
-		f1.sub[s].xMc[9] = int16(sr & 0x7)
-		sr >>= 3
-		f1.sub[s].xMc[10] = int16(sr & 0x7)
-		sr >>= 3
-		sr |= uint16(data[c]) << 2
-		c++
-		f1.sub[s].xMc[11] = int16(sr & 0x7)
-		sr >>= 3
-		f1.sub[s].xMc[12] = int16(sr & 0x7)
-		sr >>= 3
+	for subframeIdx := range 4 {
+		shiftReg |= uint16(data[byteIndex]) << 4
+		byteIndex++
+		f1.sub[subframeIdx].Nc = int16(shiftReg & 0x7f)
+		shiftReg >>= 7
+		f1.sub[subframeIdx].bc = int16(shiftReg & 0x3)
+		shiftReg >>= 2
+		f1.sub[subframeIdx].Mc = int16(shiftReg & 0x3)
+		shiftReg >>= 2
+		shiftReg |= uint16(data[byteIndex]) << 1
+		byteIndex++
+		f1.sub[subframeIdx].xmaxc = int16(shiftReg & 0x3f)
+		shiftReg >>= 6
+		f1.sub[subframeIdx].xMc[0] = int16(shiftReg & 0x7)
+		shiftReg >>= 3
+		shiftReg = uint16(data[byteIndex])
+		byteIndex++
+		f1.sub[subframeIdx].xMc[1] = int16(shiftReg & 0x7)
+		shiftReg >>= 3
+		f1.sub[subframeIdx].xMc[2] = int16(shiftReg & 0x7)
+		shiftReg >>= 3
+		shiftReg |= uint16(data[byteIndex]) << 2
+		byteIndex++
+		f1.sub[subframeIdx].xMc[3] = int16(shiftReg & 0x7)
+		shiftReg >>= 3
+		f1.sub[subframeIdx].xMc[4] = int16(shiftReg & 0x7)
+		shiftReg >>= 3
+		f1.sub[subframeIdx].xMc[5] = int16(shiftReg & 0x7)
+		shiftReg >>= 3
+		shiftReg |= uint16(data[byteIndex]) << 1
+		byteIndex++
+		f1.sub[subframeIdx].xMc[6] = int16(shiftReg & 0x7)
+		shiftReg >>= 3
+		f1.sub[subframeIdx].xMc[7] = int16(shiftReg & 0x7)
+		shiftReg >>= 3
+		f1.sub[subframeIdx].xMc[8] = int16(shiftReg & 0x7)
+		shiftReg >>= 3
+		shiftReg = uint16(data[byteIndex])
+		byteIndex++
+		f1.sub[subframeIdx].xMc[9] = int16(shiftReg & 0x7)
+		shiftReg >>= 3
+		f1.sub[subframeIdx].xMc[10] = int16(shiftReg & 0x7)
+		shiftReg >>= 3
+		shiftReg |= uint16(data[byteIndex]) << 2
+		byteIndex++
+		f1.sub[subframeIdx].xMc[11] = int16(shiftReg & 0x7)
+		shiftReg >>= 3
+		f1.sub[subframeIdx].xMc[12] = int16(shiftReg & 0x7)
+		shiftReg >>= 3
 	}
 
 	// The lower 4 bits of sr carry over to frame 2.
-	frameChain := sr & 0xf
+	frameChain := shiftReg & 0xf
 
 	// Frame 2: bytes 33..64 (260 bits)
-	sr = frameChain
-	sr |= uint16(data[c]) << 4
-	c++
-	f2.LAR[0] = int16(sr & 0x3f)
-	sr >>= 6
-	f2.LAR[1] = int16(sr & 0x3f)
-	sr >>= 6
-	sr = uint16(data[c])
-	c++
-	f2.LAR[2] = int16(sr & 0x1f)
-	sr >>= 5
-	sr |= uint16(data[c]) << 3
-	c++
-	f2.LAR[3] = int16(sr & 0x1f)
-	sr >>= 5
-	f2.LAR[4] = int16(sr & 0xf)
-	sr >>= 4
-	sr |= uint16(data[c]) << 2
-	c++
-	f2.LAR[5] = int16(sr & 0xf)
-	sr >>= 4
-	f2.LAR[6] = int16(sr & 0x7)
-	sr >>= 3
-	f2.LAR[7] = int16(sr & 0x7)
-	sr >>= 3
+	shiftReg = frameChain
+	shiftReg |= uint16(data[byteIndex]) << 4
+	byteIndex++
+	f2.LAR[0] = int16(shiftReg & 0x3f)
+	shiftReg >>= 6
+	f2.LAR[1] = int16(shiftReg & 0x3f)
+	shiftReg >>= 6
+	shiftReg = uint16(data[byteIndex])
+	byteIndex++
+	f2.LAR[2] = int16(shiftReg & 0x1f)
+	shiftReg >>= 5
+	shiftReg |= uint16(data[byteIndex]) << 3
+	byteIndex++
+	f2.LAR[3] = int16(shiftReg & 0x1f)
+	shiftReg >>= 5
+	f2.LAR[4] = int16(shiftReg & 0xf)
+	shiftReg >>= 4
+	shiftReg |= uint16(data[byteIndex]) << 2
+	byteIndex++
+	f2.LAR[5] = int16(shiftReg & 0xf)
+	shiftReg >>= 4
+	f2.LAR[6] = int16(shiftReg & 0x7)
+	shiftReg >>= 3
+	f2.LAR[7] = int16(shiftReg & 0x7)
+	shiftReg >>= 3
 
 	// Subframes 0-3 for frame 2
-	for s := range 4 {
-		sr = uint16(data[c])
-		c++
-		f2.sub[s].Nc = int16(sr & 0x7f)
-		sr >>= 7
-		sr |= uint16(data[c]) << 1
-		c++
-		f2.sub[s].bc = int16(sr & 0x3)
-		sr >>= 2
-		f2.sub[s].Mc = int16(sr & 0x3)
-		sr >>= 2
-		sr |= uint16(data[c]) << 5
-		c++
-		f2.sub[s].xmaxc = int16(sr & 0x3f)
-		sr >>= 6
-		f2.sub[s].xMc[0] = int16(sr & 0x7)
-		sr >>= 3
-		f2.sub[s].xMc[1] = int16(sr & 0x7)
-		sr >>= 3
-		sr |= uint16(data[c]) << 1
-		c++
-		f2.sub[s].xMc[2] = int16(sr & 0x7)
-		sr >>= 3
-		f2.sub[s].xMc[3] = int16(sr & 0x7)
-		sr >>= 3
-		f2.sub[s].xMc[4] = int16(sr & 0x7)
-		sr >>= 3
-		sr = uint16(data[c])
-		c++
-		f2.sub[s].xMc[5] = int16(sr & 0x7)
-		sr >>= 3
-		f2.sub[s].xMc[6] = int16(sr & 0x7)
-		sr >>= 3
-		sr |= uint16(data[c]) << 2
-		c++
-		f2.sub[s].xMc[7] = int16(sr & 0x7)
-		sr >>= 3
-		f2.sub[s].xMc[8] = int16(sr & 0x7)
-		sr >>= 3
-		f2.sub[s].xMc[9] = int16(sr & 0x7)
-		sr >>= 3
-		sr |= uint16(data[c]) << 1
-		c++
-		f2.sub[s].xMc[10] = int16(sr & 0x7)
-		sr >>= 3
-		f2.sub[s].xMc[11] = int16(sr & 0x7)
-		sr >>= 3
-		f2.sub[s].xMc[12] = int16(sr & 0x7)
-		sr >>= 3
+	for subframeIdx := range 4 {
+		shiftReg = uint16(data[byteIndex])
+		byteIndex++
+		f2.sub[subframeIdx].Nc = int16(shiftReg & 0x7f)
+		shiftReg >>= 7
+		shiftReg |= uint16(data[byteIndex]) << 1
+		byteIndex++
+		f2.sub[subframeIdx].bc = int16(shiftReg & 0x3)
+		shiftReg >>= 2
+		f2.sub[subframeIdx].Mc = int16(shiftReg & 0x3)
+		shiftReg >>= 2
+		shiftReg |= uint16(data[byteIndex]) << 5
+		byteIndex++
+		f2.sub[subframeIdx].xmaxc = int16(shiftReg & 0x3f)
+		shiftReg >>= 6
+		f2.sub[subframeIdx].xMc[0] = int16(shiftReg & 0x7)
+		shiftReg >>= 3
+		f2.sub[subframeIdx].xMc[1] = int16(shiftReg & 0x7)
+		shiftReg >>= 3
+		shiftReg |= uint16(data[byteIndex]) << 1
+		byteIndex++
+		f2.sub[subframeIdx].xMc[2] = int16(shiftReg & 0x7)
+		shiftReg >>= 3
+		f2.sub[subframeIdx].xMc[3] = int16(shiftReg & 0x7)
+		shiftReg >>= 3
+		f2.sub[subframeIdx].xMc[4] = int16(shiftReg & 0x7)
+		shiftReg >>= 3
+		shiftReg = uint16(data[byteIndex])
+		byteIndex++
+		f2.sub[subframeIdx].xMc[5] = int16(shiftReg & 0x7)
+		shiftReg >>= 3
+		f2.sub[subframeIdx].xMc[6] = int16(shiftReg & 0x7)
+		shiftReg >>= 3
+		shiftReg |= uint16(data[byteIndex]) << 2
+		byteIndex++
+		f2.sub[subframeIdx].xMc[7] = int16(shiftReg & 0x7)
+		shiftReg >>= 3
+		f2.sub[subframeIdx].xMc[8] = int16(shiftReg & 0x7)
+		shiftReg >>= 3
+		f2.sub[subframeIdx].xMc[9] = int16(shiftReg & 0x7)
+		shiftReg >>= 3
+		shiftReg |= uint16(data[byteIndex]) << 1
+		byteIndex++
+		f2.sub[subframeIdx].xMc[10] = int16(shiftReg & 0x7)
+		shiftReg >>= 3
+		f2.sub[subframeIdx].xMc[11] = int16(shiftReg & 0x7)
+		shiftReg >>= 3
+		f2.sub[subframeIdx].xMc[12] = int16(shiftReg & 0x7)
+		shiftReg >>= 3
 	}
 
 	return f1, f2, nil
@@ -332,72 +332,72 @@ func unpackWAV49Block(data []byte) (f1, f2 gsmFrame, err error) {
 
 // RPE decoding.
 
-func apcmXmaxcToExpMant(xmaxc int16) (exp, mant int16) {
-	exp = 0
-	if xmaxc > 15 {
-		exp = sasr(xmaxc, 3) - 1
+func apcmXmaxcToExpMant(blockAmplitude int16) (exponent, mantissa int16) {
+	exponent = 0
+	if blockAmplitude > 15 {
+		exponent = sasr(blockAmplitude, 3) - 1
 	}
 
-	mant = xmaxc - (exp << 3)
+	mantissa = blockAmplitude - (exponent << 3)
 
-	if mant == 0 {
-		exp = -4
-		mant = 7
+	if mantissa == 0 {
+		exponent = -4
+		mantissa = 7
 	} else {
-		for mant <= 7 {
-			mant = mant<<1 | 1
-			exp--
+		for mantissa <= 7 {
+			mantissa = mantissa<<1 | 1
+			exponent--
 		}
 
-		mant -= 8
+		mantissa -= 8
 	}
 
-	return exp, mant
+	return exponent, mantissa
 }
 
-func apcmInverseQuantize(xMc [13]int16, mant, exp int16) [13]int16 {
-	var xMp [13]int16
+func apcmInverseQuantize(quantized [13]int16, mantissa, exponent int16) [13]int16 {
+	var dequantized [13]int16
 
-	temp1 := gsmFAC[mant]
-	temp2 := gsmSub(6, exp)
-	temp3 := gsmAsl(1, gsmSub(temp2, 1))
+	normFactor := gsmFAC[mantissa]
+	shiftAmount := gsmSub(6, exponent)
+	roundingOffset := gsmAsl(1, gsmSub(shiftAmount, 1))
 
-	for i := range 13 {
-		temp := (xMc[i] << 1) - 7
-		temp <<= 12
-		temp = gsmMultR(temp1, temp)
-		temp = gsmAdd(temp, temp3)
-		xMp[i] = gsmAsr(temp, temp2)
+	for pulseIdx := range 13 {
+		value := (quantized[pulseIdx] << 1) - 7
+		value <<= 12
+		value = gsmMultR(normFactor, value)
+		value = gsmAdd(value, roundingOffset)
+		dequantized[pulseIdx] = gsmAsr(value, shiftAmount)
 	}
 
-	return xMp
+	return dequantized
 }
 
-func rpeGridPositioning(Mc int16, xMp [13]int16) [40]int16 {
-	var ep [40]int16
-	for i := range 13 {
-		ep[int(Mc)+i*3] = xMp[i]
+func rpeGridPositioning(gridPosition int16, pulses [13]int16) [40]int16 {
+	var output [40]int16
+	for pulseIdx := range 13 {
+		output[int(gridPosition)+pulseIdx*3] = pulses[pulseIdx]
 	}
 
-	return ep
+	return output
 }
 
 // Long-term synthesis filtering.
 
-func (g *gsmDecoder) longTermSynthesis(Nc, bc int16, erp [40]int16) {
-	Nr := Nc
-	if Nr < 40 || Nr > 120 {
-		Nr = g.nrp
+func (g *gsmDecoder) longTermSynthesis(pitchLag, gainIndex int16, residual [40]int16) {
+	validPitchLag := pitchLag
+	if validPitchLag < 40 || validPitchLag > 120 {
+		validPitchLag = g.nrp
 	}
 
-	g.nrp = Nr
+	g.nrp = validPitchLag
 
-	brp := gsmQLB[bc]
+	gainCoeff := gsmQLB[gainIndex]
 
 	// drp pointer is at dp0[120], so drp[k] = dp0[120+k], drp[k-Nr] = dp0[120+k-Nr]
-	for k := range 40 {
-		drpp := gsmMultR(brp, g.dp0[120+k-int(Nr)])
-		g.dp0[120+k] = gsmAdd(erp[k], drpp)
+	for sampleIdx := range 40 {
+		predicted := gsmMultR(gainCoeff, g.dp0[120+sampleIdx-int(validPitchLag)])
+		g.dp0[120+sampleIdx] = gsmAdd(residual[sampleIdx], predicted)
 	}
 
 	// Shift history: dp0[-120..-1] = dp0[-80..39] in drp coordinates
@@ -407,161 +407,161 @@ func (g *gsmDecoder) longTermSynthesis(Nc, bc int16, erp [40]int16) {
 
 // Short-term synthesis filter.
 
-func decodeLAR(LARc [8]int16) [8]int16 {
-	var LARpp [8]int16
+func decodeLAR(larEncoded [8]int16) [8]int16 {
+	var larDecoded [8]int16
 
-	for i := range 8 {
-		temp1 := gsmAdd(LARc[i], gsmMIC[i]) << 10
-		temp1 = gsmSub(temp1, gsmB[i])
-		temp1 = gsmMultR(gsmINVA[i], temp1)
-		LARpp[i] = gsmAdd(temp1, temp1)
+	for coeffIdx := range 8 {
+		value := gsmAdd(larEncoded[coeffIdx], gsmMIC[coeffIdx]) << 10
+		value = gsmSub(value, gsmB[coeffIdx])
+		value = gsmMultR(gsmINVA[coeffIdx], value)
+		larDecoded[coeffIdx] = gsmAdd(value, value)
 	}
 
-	return LARpp
+	return larDecoded
 }
 
-func larToRp(LARp *[8]int16) {
-	for i := range 8 {
-		temp := LARp[i]
-		if temp < 0 {
-			if temp == -32768 {
-				temp = 32767
+func larToRp(larParams *[8]int16) {
+	for coeffIdx := range 8 {
+		absValue := larParams[coeffIdx]
+		if absValue < 0 {
+			if absValue == -32768 {
+				absValue = 32767
 			} else {
-				temp = -temp
+				absValue = -absValue
 			}
 
-			if temp < 11059 {
-				LARp[i] = -(temp << 1)
-			} else if temp < 20070 {
-				LARp[i] = -(temp + 11059)
+			if absValue < 11059 {
+				larParams[coeffIdx] = -(absValue << 1)
+			} else if absValue < 20070 {
+				larParams[coeffIdx] = -(absValue + 11059)
 			} else {
-				LARp[i] = -gsmAdd(sasr(temp, 2), 26112)
+				larParams[coeffIdx] = -gsmAdd(sasr(absValue, 2), 26112)
 			}
 		} else {
-			if temp < 11059 {
-				LARp[i] = temp << 1
-			} else if temp < 20070 {
-				LARp[i] = temp + 11059
+			if absValue < 11059 {
+				larParams[coeffIdx] = absValue << 1
+			} else if absValue < 20070 {
+				larParams[coeffIdx] = absValue + 11059
 			} else {
-				LARp[i] = gsmAdd(sasr(temp, 2), 26112)
+				larParams[coeffIdx] = gsmAdd(sasr(absValue, 2), 26112)
 			}
 		}
 	}
 }
 
 // Short_term_synthesis_filtering: 8th-order lattice filter.
-func (g *gsmDecoder) shortTermSynthFilter(rrp [8]int16, k int, wt []int16, sr []int16) {
-	for j := range k {
-		sri := wt[j]
+func (g *gsmDecoder) shortTermSynthFilter(reflCoeffs [8]int16, numSamples int, input []int16, output []int16) {
+	for sampleIdx := range numSamples {
+		sample := input[sampleIdx]
 
-		for i := 7; i >= 0; i-- {
-			tmp1 := rrp[i]
-			tmp2 := g.v[i]
+		for coeffIdx := 7; coeffIdx >= 0; coeffIdx-- {
+			coeff := reflCoeffs[coeffIdx]
+			state := g.v[coeffIdx]
 			// GSM_MULT_R inline with saturation check
-			if tmp1 == -32768 && tmp2 == -32768 {
-				tmp2 = 32767
+			if coeff == -32768 && state == -32768 {
+				state = 32767
 			} else {
-				tmp2 = int16((int32(tmp1)*int32(tmp2) + 16384) >> 15)
+				state = int16((int32(coeff)*int32(state) + 16384) >> 15)
 			}
 
-			sri = gsmSub(sri, tmp2)
+			sample = gsmSub(sample, state)
 
-			tmp1 = rrp[i]
-			if tmp1 == -32768 && sri == -32768 {
-				tmp1 = 32767
+			coeff = reflCoeffs[coeffIdx]
+			if coeff == -32768 && sample == -32768 {
+				coeff = 32767
 			} else {
-				tmp1 = int16((int32(tmp1)*int32(sri) + 16384) >> 15)
+				coeff = int16((int32(coeff)*int32(sample) + 16384) >> 15)
 			}
 
-			g.v[i+1] = gsmAdd(g.v[i], tmp1)
+			g.v[coeffIdx+1] = gsmAdd(g.v[coeffIdx], coeff)
 		}
 
-		sr[j] = sri
-		g.v[0] = sri
+		output[sampleIdx] = sample
+		g.v[0] = sample
 	}
 }
 
-func (g *gsmDecoder) shortTermSynthesis(LARc [8]int16, wt [160]int16) [160]int16 {
-	var s [160]int16
+func (g *gsmDecoder) shortTermSynthesis(larEncoded [8]int16, reconstructed [160]int16) [160]int16 {
+	var output [160]int16
 
-	LARpp_j := decodeLAR(LARc)
+	larCurrent := decodeLAR(larEncoded)
 
 	// Store decoded LAR in current slot
-	LARpp_j_1 := g.LARpp[g.j]
+	larPrevious := g.LARpp[g.j]
 	g.j ^= 1
-	g.LARpp[g.j] = LARpp_j
+	g.LARpp[g.j] = larCurrent
 
 	// Interpolation segment 0: samples 0-12 (13 samples)
-	// LARp = 3/4 * LARpp_j_1 + 1/4 * LARpp_j
-	var LARp [8]int16
-	for i := range 8 {
-		LARp[i] = gsmAdd(sasr(LARpp_j_1[i], 2), sasr(LARpp_j[i], 2))
-		LARp[i] = gsmAdd(LARp[i], sasr(LARpp_j_1[i], 1))
+	// LARp = 3/4 * larPrevious + 1/4 * larCurrent
+	var larInterpolated [8]int16
+	for coeffIdx := range 8 {
+		larInterpolated[coeffIdx] = gsmAdd(sasr(larPrevious[coeffIdx], 2), sasr(larCurrent[coeffIdx], 2))
+		larInterpolated[coeffIdx] = gsmAdd(larInterpolated[coeffIdx], sasr(larPrevious[coeffIdx], 1))
 	}
 
-	larToRp(&LARp)
-	g.shortTermSynthFilter(LARp, 13, wt[0:13], s[0:13])
+	larToRp(&larInterpolated)
+	g.shortTermSynthFilter(larInterpolated, 13, reconstructed[0:13], output[0:13])
 
 	// Interpolation segment 1: samples 13-26 (14 samples)
-	// LARp = 1/2 * LARpp_j_1 + 1/2 * LARpp_j
-	for i := range 8 {
-		LARp[i] = gsmAdd(sasr(LARpp_j_1[i], 1), sasr(LARpp_j[i], 1))
+	// LARp = 1/2 * larPrevious + 1/2 * larCurrent
+	for coeffIdx := range 8 {
+		larInterpolated[coeffIdx] = gsmAdd(sasr(larPrevious[coeffIdx], 1), sasr(larCurrent[coeffIdx], 1))
 	}
 
-	larToRp(&LARp)
-	g.shortTermSynthFilter(LARp, 14, wt[13:27], s[13:27])
+	larToRp(&larInterpolated)
+	g.shortTermSynthFilter(larInterpolated, 14, reconstructed[13:27], output[13:27])
 
 	// Interpolation segment 2: samples 27-39 (13 samples)
-	// LARp = 1/4 * LARpp_j_1 + 3/4 * LARpp_j
-	for i := range 8 {
-		LARp[i] = gsmAdd(sasr(LARpp_j_1[i], 2), sasr(LARpp_j[i], 2))
-		LARp[i] = gsmAdd(LARp[i], sasr(LARpp_j[i], 1))
+	// LARp = 1/4 * larPrevious + 3/4 * larCurrent
+	for coeffIdx := range 8 {
+		larInterpolated[coeffIdx] = gsmAdd(sasr(larPrevious[coeffIdx], 2), sasr(larCurrent[coeffIdx], 2))
+		larInterpolated[coeffIdx] = gsmAdd(larInterpolated[coeffIdx], sasr(larCurrent[coeffIdx], 1))
 	}
 
-	larToRp(&LARp)
-	g.shortTermSynthFilter(LARp, 13, wt[27:40], s[27:40])
+	larToRp(&larInterpolated)
+	g.shortTermSynthFilter(larInterpolated, 13, reconstructed[27:40], output[27:40])
 
 	// Interpolation segment 3: samples 40-159 (120 samples)
-	// LARp = LARpp_j
-	LARp = LARpp_j
-	larToRp(&LARp)
-	g.shortTermSynthFilter(LARp, 120, wt[40:160], s[40:160])
+	// LARp = larCurrent
+	larInterpolated = larCurrent
+	larToRp(&larInterpolated)
+	g.shortTermSynthFilter(larInterpolated, 120, reconstructed[40:160], output[40:160])
 
-	return s
+	return output
 }
 
 // Postprocessing: de-emphasis and truncation.
-func (g *gsmDecoder) postprocess(s [160]int16) [160]int16 {
-	var out [160]int16
+func (g *gsmDecoder) postprocess(input [160]int16) [160]int16 {
+	var output [160]int16
 
-	for k := range 160 {
-		tmp := gsmMultR(g.msr, 28180)
-		g.msr = gsmAdd(s[k], tmp)
-		out[k] = gsmAdd(g.msr, g.msr) & ^int16(0x7)
+	for sampleIdx := range 160 {
+		deemphasis := gsmMultR(g.msr, 28180)
+		g.msr = gsmAdd(input[sampleIdx], deemphasis)
+		output[sampleIdx] = gsmAdd(g.msr, g.msr) & ^int16(0x7)
 	}
 
-	return out
+	return output
 }
 
 // decodeFrame decodes a single GSM frame (160 samples).
 func (g *gsmDecoder) decodeFrame(frame *gsmFrame) [160]int16 {
-	var wt [160]int16
+	var reconstructed [160]int16
 
-	for s := range 4 {
-		sub := &frame.sub[s]
-		exp, mant := apcmXmaxcToExpMant(sub.xmaxc)
-		xMp := apcmInverseQuantize(sub.xMc, mant, exp)
-		erp := rpeGridPositioning(sub.Mc, xMp)
+	for subframeIdx := range 4 {
+		subframe := &frame.sub[subframeIdx]
+		exponent, mantissa := apcmXmaxcToExpMant(subframe.xmaxc)
+		dequantized := apcmInverseQuantize(subframe.xMc, mantissa, exponent)
+		residual := rpeGridPositioning(subframe.Mc, dequantized)
 
-		g.longTermSynthesis(sub.Nc, sub.bc, erp)
+		g.longTermSynthesis(subframe.Nc, subframe.bc, residual)
 
 		// Copy reconstructed signal from dp0 for this subframe.
-		copy(wt[s*40:(s+1)*40], g.dp0[120:160])
+		copy(reconstructed[subframeIdx*40:(subframeIdx+1)*40], g.dp0[120:160])
 	}
 
-	s := g.shortTermSynthesis(frame.LAR, wt)
+	shortTermOutput := g.shortTermSynthesis(frame.LAR, reconstructed)
 
-	return g.postprocess(s)
+	return g.postprocess(shortTermOutput)
 }
 
 // decodeBlock decodes a 65-byte WAV49 block into 320 float32 samples.

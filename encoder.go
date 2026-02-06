@@ -525,13 +525,15 @@ func (e *Encoder) writeMetadata() error {
 	}
 
 	if e.Metadata.BroadcastExtension != nil {
-		if err := e.writeRawChunk(RawChunk{ID: CIDBext, Data: encodeBroadcastChunk(e.Metadata.BroadcastExtension)}); err != nil {
+		err := e.writeRawChunk(RawChunk{ID: CIDBext, Data: encodeBroadcastChunk(e.Metadata.BroadcastExtension)})
+		if err != nil {
 			return fmt.Errorf("failed to write the bext chunk: %w", err)
 		}
 	}
 
 	if e.Metadata.Cart != nil {
-		if err := e.writeRawChunk(RawChunk{ID: CIDCart, Data: encodeCartChunk(e.Metadata.Cart)}); err != nil {
+		err := e.writeRawChunk(RawChunk{ID: CIDCart, Data: encodeCartChunk(e.Metadata.Cart)})
+		if err != nil {
 			return fmt.Errorf("failed to write the cart chunk: %w", err)
 		}
 	}

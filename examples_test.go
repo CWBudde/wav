@@ -107,5 +107,5 @@ func ExampleDecoder_ReadMetadata() {
 
 	fmt.Printf("%#v\n", decoder.Metadata)
 	// Output:
-	// &wav.Metadata{SamplerInfo:(*wav.SamplerInfo)(nil), Artist:"artist", Comments:"my comment", Copyright:"", CreationDate:"2017", Engineer:"", Technician:"", Genre:"genre", Keywords:"", Medium:"", Title:"track title", Product:"album title", Subject:"", Software:"", Source:"", Location:"", TrackNbr:"42", CuePoints:[]*wav.CuePoint(nil)}
+	// &wav.Metadata{SamplerInfo:(*wav.SamplerInfo)(nil), BroadcastExtension:(*wav.BroadcastExtension)(nil), Cart:(*wav.Cart)(nil), Artist:"artist", Comments:"my comment", Copyright:"", CreationDate:"2017", Engineer:"", Technician:"", Genre:"genre", Keywords:"", Medium:"", Title:"track title", Product:"album title", Subject:"", Software:"", Source:"", Location:"", TrackNbr:"42", CuePoints:[]*wav.CuePoint(nil)}
 }
