@@ -95,41 +95,41 @@ func DecodeSamplerChunk(d *Decoder, ch *riff.Chunk) error {
 
 		if d.Metadata.SamplerInfo.NumSampleLoops > 0 {
 			d.Metadata.SamplerInfo.Loops = []*SampleLoop{}
-			for range uint32(d.Metadata.SamplerInfo.NumSampleLoops) {
-				sl := &SampleLoop{}
+			for range d.Metadata.SamplerInfo.NumSampleLoops {
+				sampleLoop := &SampleLoop{}
 
 				if _, err = Reader.Read(scratch); err != nil {
 					return errSmplCuePointIDReadFail
 				}
 
-				copy(sl.CuePointID[:], scratch[:4])
+				copy(sampleLoop.CuePointID[:], scratch[:4])
 
-				err := binary.Read(Reader, binary.LittleEndian, &sl.Type)
+				err := binary.Read(Reader, binary.LittleEndian, &sampleLoop.Type)
 				if err != nil {
 					return fmt.Errorf("failed to read sample loop type: %w", err)
 				}
 
-				err = binary.Read(Reader, binary.LittleEndian, &sl.Start)
+				err = binary.Read(Reader, binary.LittleEndian, &sampleLoop.Start)
 				if err != nil {
 					return fmt.Errorf("failed to read sample loop start: %w", err)
 				}
 
-				err = binary.Read(Reader, binary.LittleEndian, &sl.End)
+				err = binary.Read(Reader, binary.LittleEndian, &sampleLoop.End)
 				if err != nil {
 					return fmt.Errorf("failed to read sample loop end: %w", err)
 				}
 
-				err = binary.Read(Reader, binary.LittleEndian, &sl.Fraction)
+				err = binary.Read(Reader, binary.LittleEndian, &sampleLoop.Fraction)
 				if err != nil {
 					return fmt.Errorf("failed to read sample loop fraction: %w", err)
 				}
 
-				err = binary.Read(Reader, binary.LittleEndian, &sl.PlayCount)
+				err = binary.Read(Reader, binary.LittleEndian, &sampleLoop.PlayCount)
 				if err != nil {
 					return fmt.Errorf("failed to read sample loop play count: %w", err)
 				}
 
-				d.Metadata.SamplerInfo.Loops = append(d.Metadata.SamplerInfo.Loops, sl)
+				d.Metadata.SamplerInfo.Loops = append(d.Metadata.SamplerInfo.Loops, sampleLoop)
 			}
 		}
 	}

@@ -245,7 +245,7 @@ func (d *Decoder) FwdToPCM() error {
 
 	d.err = d.readHeaders()
 	if d.err != nil {
-		return nil
+		return d.err
 	}
 
 	var chunk *riff.Chunk
@@ -440,7 +440,7 @@ func (d *Decoder) PCMBuffer(buf *audio.Float32Buffer) (n int, err error) {
 	}
 
 	bufR := bytes.NewReader(tmpBuf[:tmp])
-	sampleBuf := make([]byte, bPerSample, bPerSample)
+	sampleBuf := make([]byte, bPerSample)
 
 	var misaligned bool
 	if tmp%bPerSample > 0 {

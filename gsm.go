@@ -213,7 +213,6 @@ func unpackWAV49Block(data []byte) (f1, f2 gsmFrame, err error) {
 		f1.sub[subframeIdx].xmaxc = int16(shiftReg & 0x3f)
 		shiftReg >>= 6
 		f1.sub[subframeIdx].xMc[0] = int16(shiftReg & 0x7)
-		shiftReg >>= 3
 		shiftReg = uint16(data[byteIndex])
 		byteIndex++
 		f1.sub[subframeIdx].xMc[1] = int16(shiftReg & 0x7)
@@ -235,7 +234,6 @@ func unpackWAV49Block(data []byte) (f1, f2 gsmFrame, err error) {
 		f1.sub[subframeIdx].xMc[7] = int16(shiftReg & 0x7)
 		shiftReg >>= 3
 		f1.sub[subframeIdx].xMc[8] = int16(shiftReg & 0x7)
-		shiftReg >>= 3
 		shiftReg = uint16(data[byteIndex])
 		byteIndex++
 		f1.sub[subframeIdx].xMc[9] = int16(shiftReg & 0x7)
@@ -260,7 +258,6 @@ func unpackWAV49Block(data []byte) (f1, f2 gsmFrame, err error) {
 	f2.LAR[0] = int16(shiftReg & 0x3f)
 	shiftReg >>= 6
 	f2.LAR[1] = int16(shiftReg & 0x3f)
-	shiftReg >>= 6
 	shiftReg = uint16(data[byteIndex])
 	byteIndex++
 	f2.LAR[2] = int16(shiftReg & 0x1f)
@@ -278,7 +275,6 @@ func unpackWAV49Block(data []byte) (f1, f2 gsmFrame, err error) {
 	f2.LAR[6] = int16(shiftReg & 0x7)
 	shiftReg >>= 3
 	f2.LAR[7] = int16(shiftReg & 0x7)
-	shiftReg >>= 3
 
 	// Subframes 0-3 for frame 2
 	for subframeIdx := range 4 {
@@ -307,7 +303,6 @@ func unpackWAV49Block(data []byte) (f1, f2 gsmFrame, err error) {
 		f2.sub[subframeIdx].xMc[3] = int16(shiftReg & 0x7)
 		shiftReg >>= 3
 		f2.sub[subframeIdx].xMc[4] = int16(shiftReg & 0x7)
-		shiftReg >>= 3
 		shiftReg = uint16(data[byteIndex])
 		byteIndex++
 		f2.sub[subframeIdx].xMc[5] = int16(shiftReg & 0x7)
@@ -329,7 +324,6 @@ func unpackWAV49Block(data []byte) (f1, f2 gsmFrame, err error) {
 		f2.sub[subframeIdx].xMc[11] = int16(shiftReg & 0x7)
 		shiftReg >>= 3
 		f2.sub[subframeIdx].xMc[12] = int16(shiftReg & 0x7)
-		shiftReg >>= 3
 	}
 
 	return f1, f2, nil
@@ -337,13 +331,13 @@ func unpackWAV49Block(data []byte) (f1, f2 gsmFrame, err error) {
 
 // RPE decoding.
 
-func apcmXmaxcToExpMant(blockAmplitude int16) (exponent, mantissa int16) {
-	exponent = 0
+func apcmXmaxcToExpMant(blockAmplitude int16) (int16, int16) {
+	exponent := int16(0)
 	if blockAmplitude > 15 {
 		exponent = sasr(blockAmplitude, 3) - 1
 	}
 
-	mantissa = blockAmplitude - (exponent << 3)
+	mantissa := blockAmplitude - (exponent << 3)
 
 	if mantissa == 0 {
 		exponent = -4
@@ -665,14 +659,20 @@ func (g *gsmDecoder) decodeToBuffer(r io.Reader, out []float32) (int, error) {
 
 	block := make([]byte, gsmBlockSize)
 
+	var (
+		err     error
+		readErr error
+		nr      int
+	)
+
 	for n < len(out) {
 		// Check factSamples limit.
 		if g.factSamples > 0 && g.delivered >= g.factSamples {
 			break
 		}
 
-		nr, err := io.ReadFull(r, block)
-		if nr == 0 || (errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF)) && nr == 0 {
+		nr, readErr = io.ReadFull(r, block)
+		if nr == 0 || (errors.Is(readErr, io.EOF) || errors.Is(readErr, io.ErrUnexpectedEOF)) && nr == 0 {
 			break
 		}
 
@@ -716,10 +716,11 @@ func (g *gsmDecoder) decodeToBuffer(r io.Reader, out []float32) (int, error) {
 			}
 		}
 
-		if err != nil {
+		if readErr != nil {
+			err = readErr
 			break
 		}
 	}
 
-	return n, nil
+	return n, err
 }

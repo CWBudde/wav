@@ -21,25 +21,25 @@ const (
 	maxPCMInt32         = 2147483647
 )
 
-func clampFloat32(value, min, max float32) float32 {
-	if value < min {
-		return min
+func clampFloat32(value, minVal, maxVal float32) float32 {
+	if value < minVal {
+		return minVal
 	}
 
-	if value > max {
-		return max
+	if value > maxVal {
+		return maxVal
 	}
 
 	return value
 }
 
-func clampFloat64(value, min, max float64) float64 {
-	if value < min {
-		return min
+func clampFloat64(value, minVal, maxVal float64) float64 {
+	if value < minVal {
+		return minVal
 	}
 
-	if value > max {
-		return max
+	if value > maxVal {
+		return maxVal
 	}
 
 	return value

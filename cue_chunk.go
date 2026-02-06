@@ -84,7 +84,9 @@ func DecodeCueChunk(d *Decoder, ch *riff.Chunk) error {
 		reader := bytes.NewReader(buf)
 
 		var nbrCues uint32
-		if err := binary.Read(reader, binary.LittleEndian, &nbrCues); err != nil {
+
+		err = binary.Read(reader, binary.LittleEndian, &nbrCues)
+		if err != nil {
 			return fmt.Errorf("failed to read the number of cues - %w", err)
 		}
 

@@ -80,9 +80,9 @@ func TestUnsupportedCompressedFormats_ErrorMessageIncludesCodec(t *testing.T) {
 		{path: "fixtures/voxware.wav", name: "Voxware", tag: 6172},
 	}
 
-	for _, tc := range testCases {
-		t.Run(filepath.Base(tc.path), func(t *testing.T) {
-			f, err := os.Open(tc.path)
+	for _, testCase := range testCases {
+		t.Run(filepath.Base(testCase.path), func(t *testing.T) {
+			f, err := os.Open(testCase.path)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -96,12 +96,12 @@ func TestUnsupportedCompressedFormats_ErrorMessageIncludesCodec(t *testing.T) {
 			}
 
 			msg := err.Error()
-			if !strings.Contains(msg, tc.name) {
-				t.Fatalf("error %q should include codec name %q", msg, tc.name)
+			if !strings.Contains(msg, testCase.name) {
+				t.Fatalf("error %q should include codec name %q", msg, testCase.name)
 			}
 
-			if !strings.Contains(msg, strconv.Itoa(int(tc.tag))) {
-				t.Fatalf("error %q should include format tag %d", msg, tc.tag)
+			if !strings.Contains(msg, strconv.Itoa(int(testCase.tag))) {
+				t.Fatalf("error %q should include format tag %d", msg, testCase.tag)
 			}
 		})
 	}

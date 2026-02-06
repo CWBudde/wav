@@ -12,6 +12,8 @@ import (
 	"github.com/go-audio/audio"
 )
 
+var errNoUser = errors.New("no user")
+
 func TestClampFloat32(t *testing.T) {
 	tests := []struct {
 		name  string
@@ -224,7 +226,7 @@ func TestRunHomeExpansion(t *testing.T) {
 
 func TestRunUserResolutionError(t *testing.T) {
 	failUser := func() (*user.User, error) {
-		return nil, errors.New("no user")
+		return nil, errNoUser
 	}
 
 	err := run([]string{"-path", "/some/file.wav"}, failUser, &bytes.Buffer{})

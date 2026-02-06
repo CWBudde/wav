@@ -19,7 +19,7 @@ func TestDecoder_ReadMetadata(t *testing.T) {
 				TrackNbr: "42", CreationDate: "2017", Genre: "genre", Comments: "my comment",
 			},
 		},
-		{in: "fixtures/kick.wav"},
+		{in: "fixtures/kick.wav", metadata: nil},
 		{in: "fixtures/flloop.wav", metadata: &Metadata{
 			Software: "FL Studio (beta)",
 			CuePoints: []*CuePoint{

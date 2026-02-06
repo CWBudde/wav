@@ -316,24 +316,24 @@ func TestGSMIsValidFile(t *testing.T) {
 }
 
 func TestGSMRewind(t *testing.T) {
-	f, err := os.Open("fixtures/addf8-GSM-GW.wav")
+	file, err := os.Open("fixtures/addf8-GSM-GW.wav")
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer f.Close()
+	defer file.Close()
 
-	d := NewDecoder(f)
+	dec := NewDecoder(file)
 
-	buf1, err := d.FullPCMBuffer()
+	buf1, err := dec.FullPCMBuffer()
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if err := d.Rewind(); err != nil {
+	if err := dec.Rewind(); err != nil {
 		t.Fatal(err)
 	}
 
-	buf2, err := d.FullPCMBuffer()
+	buf2, err := dec.FullPCMBuffer()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -351,23 +351,23 @@ func TestGSMRewind(t *testing.T) {
 
 func TestUnsupportedFormatsStillFail(t *testing.T) {
 	// TrueSpeech and Voxware should still be unsupported.
-	for _, tc := range []struct {
+	for _, testCase := range []struct {
 		path string
 	}{
 		{"fixtures/truspech.wav"},
 		{"fixtures/voxware.wav"},
 	} {
-		f, err := os.Open(tc.path)
+		file, err := os.Open(testCase.path)
 		if err != nil {
 			t.Fatal(err)
 		}
-		defer f.Close()
+		defer file.Close()
 
-		d := NewDecoder(f)
+		d := NewDecoder(file)
 
 		_, err = d.FullPCMBuffer()
 		if !errors.Is(err, ErrUnsupportedCompressedFormat) {
-			t.Fatalf("%s: expected ErrUnsupportedCompressedFormat, got %v", tc.path, err)
+			t.Fatalf("%s: expected ErrUnsupportedCompressedFormat, got %v", testCase.path, err)
 		}
 	}
 }
@@ -375,13 +375,13 @@ func TestUnsupportedFormatsStillFail(t *testing.T) {
 // Test cross-validation with sox reference decoder.
 func TestGSM_SoxReferenceValidation(t *testing.T) {
 	// Decode with our decoder
-	f, err := os.Open("fixtures/addf8-GSM-GW.wav")
+	file, err := os.Open("fixtures/addf8-GSM-GW.wav")
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer f.Close()
+	defer file.Close()
 
-	d := NewDecoder(f)
+	d := NewDecoder(file)
 
 	buf, err := d.FullPCMBuffer()
 	if err != nil {
@@ -470,13 +470,13 @@ func TestGSM_SoxReferenceValidation(t *testing.T) {
 // Test cross-validation with ffmpeg reference decoder.
 func TestGSM_FFmpegReferenceValidation(t *testing.T) {
 	// Decode with our decoder
-	f, err := os.Open("fixtures/addf8-GSM-GW.wav")
+	file, err := os.Open("fixtures/addf8-GSM-GW.wav")
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer f.Close()
+	defer file.Close()
 
-	d := NewDecoder(f)
+	d := NewDecoder(file)
 
 	buf, err := d.FullPCMBuffer()
 	if err != nil {

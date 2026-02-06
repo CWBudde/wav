@@ -43,6 +43,7 @@ func main() {
 var (
 	errMissingPath    = errors.New("missing -path flag")
 	errResolveHomeDir = errors.New("failed to resolve current user")
+	errInvalidWAVFile = errors.New("invalid WAV file")
 )
 
 func run(args []string, currentUser func() (*user.User, error), out io.Writer) error {
@@ -75,7 +76,7 @@ func run(args []string, currentUser func() (*user.User, error), out io.Writer) e
 
 	decoder := wav.NewDecoder(file)
 	if !decoder.IsValidFile() {
-		return errors.New("invalid WAV file")
+		return errInvalidWAVFile
 	}
 
 	outPath := sourcePath[:len(sourcePath)-len(filepath.Ext(sourcePath))] + ".aif"
@@ -189,24 +190,24 @@ func float32ToPCMInt32(value float32, bitDepth int) int32 {
 	}
 }
 
-func clampScaledPCM(value float32, scale float64, max int64) int32 {
-	sample := min(int64(math.Round(float64(value)*scale)), max)
+func clampScaledPCM(value float32, scale float64, maxVal int64) int32 {
+	sample := min(int64(math.Round(float64(value)*scale)), maxVal)
 
-	min := int64(-scale)
-	if sample < min {
-		sample = min
+	minVal := int64(-scale)
+	if sample < minVal {
+		sample = minVal
 	}
 
 	return int32(sample)
 }
 
-func clampFloat32(value, min, max float32) float32 {
-	if value < min {
-		return min
+func clampFloat32(value, minVal, maxVal float32) float32 {
+	if value < minVal {
+		return minVal
 	}
 
-	if value > max {
-		return max
+	if value > maxVal {
+		return maxVal
 	}
 
 	return value

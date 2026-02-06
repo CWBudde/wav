@@ -18,13 +18,13 @@ func main() {
 }
 
 func run(args []string) error {
-	fs := flag.NewFlagSet("gen-sine", flag.ContinueOnError)
+	flagSet := flag.NewFlagSet("gen-sine", flag.ContinueOnError)
 
-	output := fs.String("output", "output.wav", "filename to write to")
-	frequency := fs.Float64("frequency", 440, "frequency in hertz to generate")
-	length := fs.Float64("length", 5, "length in seconds of output file")
+	output := flagSet.String("output", "output.wav", "filename to write to")
+	frequency := flagSet.Float64("frequency", 440, "frequency in hertz to generate")
+	length := flagSet.Float64("length", 5, "length in seconds of output file")
 
-	if err := fs.Parse(args); err != nil {
+	if err := flagSet.Parse(args); err != nil {
 		return err
 	}
 

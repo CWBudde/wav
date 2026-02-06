@@ -378,7 +378,7 @@ func (e *Encoder) WriteFrame(value any) error {
 		case 32:
 			return e.AddLE(float32ToPCMInt32(val, 32))
 		default:
-			return fmt.Errorf("can't add frames of bit size %d", e.BitDepth)
+			return fmt.Errorf("%w: %d", errUnsupportedFrameBitSize, e.BitDepth)
 		}
 	case float64:
 		if e.effectiveAudioFormat() == wavFormatIEEEFloat {
@@ -676,9 +676,9 @@ func (e *Encoder) Close() error {
 			return fmt.Errorf("failed to seek to PCM chunk size position: %w", err)
 		}
 
-		chunksize := uint32((int(e.BitDepth) / 8) * int(e.NumChans) * e.frames)
+		chunksize := uint32((e.BitDepth / 8) * e.NumChans * e.frames)
 
-		err := e.AddLE(uint32(chunksize))
+		err := e.AddLE(chunksize)
 		if err != nil {
 			return fmt.Errorf("%w when writing wav data chunk size header", err)
 		}
@@ -689,9 +689,8 @@ func (e *Encoder) Close() error {
 		return fmt.Errorf("failed to seek to end of file: %w", err)
 	}
 
-	switch e.w.(type) {
-	case *os.File:
-		return e.w.(*os.File).Sync()
+	if f, ok := e.w.(*os.File); ok {
+		return f.Sync()
 	}
 
 	return nil

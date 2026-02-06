@@ -42,7 +42,9 @@ func DecodeBroadcastChunk(d *Decoder, ch *riff.Chunk) error {
 	}
 
 	buf := make([]byte, ch.Size)
-	if _, err := io.ReadFull(ch, buf); err != nil {
+
+	_, err := io.ReadFull(ch, buf)
+	if err != nil {
 		return fmt.Errorf("failed to read the bext chunk - %w", err)
 	}
 

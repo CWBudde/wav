@@ -30,6 +30,29 @@ allow-first-in-block = true
 branch-max-lines = 2
 allow-whole-block = false
 
+[linters.settings.exhaustruct]
+exclude = [
+  # Internal complex structs that don't benefit from exhaustive initialization
+  '.*\.Decoder',
+  '.*\.Encoder',
+  '.*\.FmtChunk',
+  '.*\.FmtExtensible',
+  '.*\.RawChunk',
+  '.*\.Metadata',
+  '.*\.BroadcastExtension',
+  '.*\.Cart',
+  '.*\.CuePoint',
+  '.*\.testCustomListHandler',
+  '.*\.ChunkRegistry',
+  '.*\.gsmDecoder',
+  '.*\.SamplerInfo',
+  '.*\.SampleLoop',
+  # External packages
+  '.*\.Chunk',
+  '.*\.Float32Buffer',
+  '.*\.User',
+]
+
 [linters.exclusions]
 generated = 'lax'
 presets = ['comments', 'common-false-positives', 'legacy', 'std-error-handling']

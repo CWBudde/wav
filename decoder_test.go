@@ -75,7 +75,7 @@ func TestDecoder_Duration(t *testing.T) {
 		in       string
 		duration time.Duration
 	}{
-		{"fixtures/kick.wav", time.Duration(204172335 * time.Nanosecond)},
+		{"fixtures/kick.wav", 204172335 * time.Nanosecond},
 	}
 
 	for _, testCase := range testCases {
@@ -842,15 +842,15 @@ func TestDecoder_EdgeCases(t *testing.T) {
 		},
 	}
 
-	for _, tc := range testCases {
-		t.Run(tc.desc, func(t *testing.T) {
-			f, err := os.Open(tc.input)
+	for _, testCase := range testCases {
+		t.Run(testCase.desc, func(t *testing.T) {
+			file, err := os.Open(testCase.input)
 			if err != nil {
 				t.Fatal(err)
 			}
-			defer f.Close()
+			defer file.Close()
 
-			d := NewDecoder(f)
+			d := NewDecoder(file)
 			// Should be able to read basic info
 			d.ReadInfo()
 
@@ -1322,9 +1322,9 @@ func TestDecoder_G711RoundTrip(t *testing.T) {
 
 	os.Mkdir("testOutput", 0o777)
 
-	for _, tc := range testCases {
-		t.Run(filepath.Base(tc.input), func(t *testing.T) {
-			in, err := os.Open(tc.input)
+	for _, testCase := range testCases {
+		t.Run(filepath.Base(testCase.input), func(t *testing.T) {
+			in, err := os.Open(testCase.input)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -1338,7 +1338,7 @@ func TestDecoder_G711RoundTrip(t *testing.T) {
 
 			in.Close()
 
-			outPath := filepath.Join("testOutput", filepath.Base(tc.input))
+			outPath := filepath.Join("testOutput", filepath.Base(testCase.input))
 
 			out, err := os.Create(outPath)
 			if err != nil {

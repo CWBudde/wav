@@ -76,12 +76,12 @@ func TestChunkRegistrySupportsCustomListHandler(t *testing.T) {
 }
 
 func TestChunkRegistryUnknownChunkFallback(t *testing.T) {
-	d := NewDecoder(bytes.NewReader(nil))
-	d.unknownChunkOrder = 1
+	dec := NewDecoder(bytes.NewReader(nil))
+	dec.unknownChunkOrder = 1
 
-	ch := &riff.Chunk{ID: [4]byte{'t', 'e', 's', 't'}, Size: 3, R: bytes.NewReader([]byte{1, 2, 3})}
+	chunk := &riff.Chunk{ID: [4]byte{'t', 'e', 's', 't'}, Size: 3, R: bytes.NewReader([]byte{1, 2, 3})}
 
-	handled, err := d.decodeChunkViaRegistry(ch)
+	handled, err := dec.decodeChunkViaRegistry(chunk)
 	if err != nil {
 		t.Fatalf("decode chunk via registry: %v", err)
 	}
@@ -90,21 +90,21 @@ func TestChunkRegistryUnknownChunkFallback(t *testing.T) {
 		t.Fatal("expected unknown chunk to be unhandled")
 	}
 
-	d.captureUnknownChunk(ch, true)
+	dec.captureUnknownChunk(chunk, true)
 
-	if d.Err() != nil {
-		t.Fatalf("capture unknown chunk: %v", d.Err())
+	if dec.Err() != nil {
+		t.Fatalf("capture unknown chunk: %v", dec.Err())
 	}
 
-	if len(d.UnknownChunks) != 1 {
-		t.Fatalf("expected 1 unknown chunk, got %d", len(d.UnknownChunks))
+	if len(dec.UnknownChunks) != 1 {
+		t.Fatalf("expected 1 unknown chunk, got %d", len(dec.UnknownChunks))
 	}
 
-	if d.UnknownChunks[0].ID != [4]byte{'t', 'e', 's', 't'} {
-		t.Fatalf("unknown id mismatch: %q", d.UnknownChunks[0].ID)
+	if dec.UnknownChunks[0].ID != [4]byte{'t', 'e', 's', 't'} {
+		t.Fatalf("unknown id mismatch: %q", dec.UnknownChunks[0].ID)
 	}
 
-	if !bytes.Equal(d.UnknownChunks[0].Data, []byte{1, 2, 3}) {
-		t.Fatalf("unknown data mismatch: %v", d.UnknownChunks[0].Data)
+	if !bytes.Equal(dec.UnknownChunks[0].Data, []byte{1, 2, 3}) {
+		t.Fatalf("unknown data mismatch: %v", dec.UnknownChunks[0].Data)
 	}
 }

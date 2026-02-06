@@ -15,6 +15,7 @@ func ExampleDecoder_Duration() {
 
 	dur, err := NewDecoder(file).Duration()
 	if err != nil {
+		file.Close()
 		log.Fatal(err)
 	}
 
