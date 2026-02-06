@@ -1,6 +1,6 @@
 # wav
 
-[![GoDoc](https://godoc.org/github.com/cwbudde/wav?status.svg)](https://godoc.org/github.com/cwbudde/wav)
+[![Go Reference](https://pkg.go.dev/badge/github.com/cwbudde/wav.svg)](https://pkg.go.dev/github.com/cwbudde/wav)
 [![Go Report Card](https://goreportcard.com/badge/github.com/cwbudde/wav)](https://goreportcard.com/report/github.com/cwbudde/wav)
 
 A Go package for encoding and decoding [WAV](https://en.wikipedia.org/wiki/WAV) audio files. Supports PCM integer (8/16/24/32-bit) and IEEE float (32/64-bit) formats, metadata (LIST/INFO chunks), sampler info (smpl chunks), and cue points.
@@ -147,7 +147,7 @@ Additionally, `SamplerInfo` provides MIDI and loop metadata from the smpl chunk.
 
 ## API Documentation
 
-See the full API reference on [GoDoc](https://godoc.org/github.com/cwbudde/wav).
+See the full API reference on [pkg.go.dev](https://pkg.go.dev/github.com/cwbudde/wav).
 
 ## Round-trip APIs
 
