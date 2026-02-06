@@ -173,7 +173,8 @@ func (d *Decoder) IsValidFile() bool {
 		return false
 	}
 
-	if d, err := d.Duration(); err != nil || d <= 0 {
+	dur, err := d.Duration()
+	if err != nil || dur <= 0 {
 		return false
 	}
 
@@ -512,7 +513,8 @@ func (d *Decoder) NextChunk() (*riff.Chunk, error) {
 
 	// TODO: copied over from riff.parser.NextChunk
 	// all RIFF chunks (including WAVE "data" chunks) must be word aligned.
-	// If the data uses an odd number of bytes, a padding byte with a value of zero must be placed at the end of the sample data.
+	// If the data uses an odd number of bytes, a padding byte with a value of zero
+	// must be placed at the end of the sample data.
 	// The "data" chunk header's size should not include this byte.
 	if size%2 == 1 {
 		size++
@@ -563,7 +565,8 @@ func (d *Decoder) readHeaders() error {
 	}
 
 	d.parser.Size = size
-	if err := binary.Read(d.r, binary.BigEndian, &d.parser.Format); err != nil {
+	err = binary.Read(d.r, binary.BigEndian, &d.parser.Format)
+	if err != nil {
 		return fmt.Errorf("failed to read format: %w", err)
 	}
 

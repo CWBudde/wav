@@ -587,6 +587,7 @@ func (g *gsmDecoder) decodeAllBlocks(r io.Reader, factSamples int) ([]float32, e
 
 	block := make([]byte, gsmBlockSize)
 
+	var lastErr error
 	for {
 		n, err := io.ReadFull(r, block)
 
@@ -606,8 +607,13 @@ func (g *gsmDecoder) decodeAllBlocks(r io.Reader, factSamples int) ([]float32, e
 		g.appendNormalizedSamples(&allSamples, samples)
 
 		if err != nil {
+			lastErr = err
 			break
 		}
+	}
+
+	if lastErr != nil && lastErr != io.EOF && lastErr != io.ErrUnexpectedEOF {
+		return nil, lastErr
 	}
 
 	return g.trimToFactSamples(allSamples, factSamples), nil

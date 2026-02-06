@@ -16,13 +16,13 @@ func TestRunGeneratesWavFile(t *testing.T) {
 		t.Fatalf("run failed: %v", err)
 	}
 
-	fi, err := os.Stat(outPath)
+	file, err := os.Stat(outPath)
 	if err != nil {
 		t.Fatalf("output file missing: %v", err)
 	}
 
-	if fi.Size() <= 44 {
-		t.Fatalf("unexpected small wav file size: %d", fi.Size())
+	if file.Size() <= 44 {
+		t.Fatalf("unexpected small wav file size: %d", file.Size())
 	}
 
 	f, err := os.Open(outPath)

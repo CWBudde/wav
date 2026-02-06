@@ -19,14 +19,28 @@ func TestEncoderRoundTrip(t *testing.T) {
 		metadata *Metadata
 		desc     string
 	}{
-		{"fixtures/kick.wav", "testOutput/kick.wav", nil, "22050 Hz @ 16 bits, 1 channel(s), 44100 avg bytes/sec, duration: 204.172335ms"},
-		{"fixtures/kick-16b441k.wav", "testOutput/kick-16b441k.wav", nil, "2 ch,  44100 Hz, 'lpcm' 16-bit little-endian signed integer"},
-		{"fixtures/bass.wav", "testOutput/bass.wav", nil, "44100 Hz @ 24 bits, 2 channel(s), 264600 avg bytes/sec, duration: 543.378684ms"},
-		{"fixtures/8bit.wav", "testOutput/8bit.wav", &Metadata{
-			Artist: "Matt", Copyright: "copyleft", Comments: "A comment", CreationDate: "2017-12-12", Engineer: "Matt A", Technician: "Matt Aimonetti",
-			Genre: "test", Keywords: "go code", Medium: "Virtual", Title: "Titre", Product: "go-audio", Subject: "wav codec",
-			Software: "go-audio codec", Source: "Audacity generator", Location: "Los Angeles", TrackNbr: "42",
-		}, "1 ch,  44100 Hz, 8-bit unsigned integer"},
+		{
+			"fixtures/kick.wav", "testOutput/kick.wav", nil,
+			"22050 Hz @ 16 bits, 1 channel(s), 44100 avg bytes/sec, duration: 204.172335ms",
+		},
+		{
+			"fixtures/kick-16b441k.wav", "testOutput/kick-16b441k.wav", nil,
+			"2 ch,  44100 Hz, 'lpcm' 16-bit little-endian signed integer",
+		},
+		{
+			"fixtures/bass.wav", "testOutput/bass.wav", nil,
+			"44100 Hz @ 24 bits, 2 channel(s), 264600 avg bytes/sec, duration: 543.378684ms",
+		},
+		{
+			"fixtures/8bit.wav", "testOutput/8bit.wav", &Metadata{
+				Artist: "Matt", Copyright: "copyleft", Comments: "A comment", CreationDate: "2017-12-12",
+				Engineer: "Matt A", Technician: "Matt Aimonetti",
+				Genre: "test", Keywords: "go code", Medium: "Virtual", Title: "Titre",
+				Product: "go-audio", Subject: "wav codec",
+				Software: "go-audio codec", Source: "Audacity generator",
+				Location: "Los Angeles", TrackNbr: "42",
+			}, "1 ch,  44100 Hz, 8-bit unsigned integer",
+		},
 		{"fixtures/32bit.wav", "testOutput/32bit.wav", nil, "1 ch, 44100 Hz, 32-bit little-endian signed integer"},
 		// IEEE Float formats
 		{"fixtures/M1F1-float32-AFsp.wav", "testOutput/M1F1-float32-AFsp.wav", nil, "2 ch, 8000 Hz, 32-bit IEEE float"},
@@ -106,7 +120,11 @@ func TestEncoderRoundTrip(t *testing.T) {
 				}
 
 				if testCase.metadata.CreationDate != decoder.Metadata.CreationDate {
-					t.Errorf("expected CreationDate to be %s, but was %s", testCase.metadata.CreationDate, decoder.Metadata.CreationDate)
+					t.Errorf(
+						"expected CreationDate to be %s, but was %s",
+						testCase.metadata.CreationDate,
+						decoder.Metadata.CreationDate,
+					)
 				}
 
 				if testCase.metadata.Engineer != decoder.Metadata.Engineer {
@@ -406,13 +424,13 @@ func TestEncoder_Write_MultipleBuffers(t *testing.T) {
 
 	outPath := path.Join("testOutput", "multi_write.wav")
 
-	f, err := os.Create(outPath)
+	file, err := os.Create(outPath)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer os.Remove(outPath)
 
-	enc := NewEncoder(f, 44100, 16, 1, wavFormatPCM)
+	enc := NewEncoder(file, 44100, 16, 1, wavFormatPCM)
 	format := &audio.Format{NumChannels: 1, SampleRate: 44100}
 
 	// Write two separate buffers
@@ -433,7 +451,7 @@ func TestEncoder_Write_MultipleBuffers(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	f.Close()
+	file.Close()
 
 	verify, err := os.Open(outPath)
 	if err != nil {

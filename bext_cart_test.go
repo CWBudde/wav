@@ -10,24 +10,24 @@ import (
 )
 
 func TestDecoder_ReadMetadata_BWFBroadcastChunk(t *testing.T) {
-	f, err := os.Open("fixtures/bwf.wav")
+	file, err := os.Open("fixtures/bwf.wav")
 	if err != nil {
 		t.Fatalf("open fixture: %v", err)
 	}
-	defer f.Close()
+	defer file.Close()
 
-	d := NewDecoder(f)
-	d.ReadMetadata()
+	dec := NewDecoder(file)
+	dec.ReadMetadata()
 
-	if err := d.Err(); err != nil {
+	if err := dec.Err(); err != nil {
 		t.Fatalf("read metadata: %v", err)
 	}
 
-	if d.Metadata == nil || d.Metadata.BroadcastExtension == nil {
+	if dec.Metadata == nil || dec.Metadata.BroadcastExtension == nil {
 		t.Fatal("expected bext metadata from fixtures/bwf.wav")
 	}
 
-	for _, ch := range d.UnknownChunks {
+	for _, ch := range dec.UnknownChunks {
 		if ch.ID == CIDBext {
 			t.Fatal("bext chunk should be parsed as typed metadata, not unknown")
 		}
@@ -133,30 +133,30 @@ func TestBroadcastAndCartMetadataRoundTrip(t *testing.T) {
 	}
 	defer in.Close()
 
-	d := NewDecoder(in)
-	d.ReadMetadata()
+	dec := NewDecoder(in)
+	dec.ReadMetadata()
 
-	if err := d.Err(); err != nil {
+	if err := dec.Err(); err != nil {
 		t.Fatalf("read metadata: %v", err)
 	}
 
-	if d.Metadata == nil {
+	if dec.Metadata == nil {
 		t.Fatal("metadata is nil")
 	}
 
-	if d.Metadata.BroadcastExtension == nil {
+	if dec.Metadata.BroadcastExtension == nil {
 		t.Fatal("broadcast extension metadata is nil")
 	}
 
-	if d.Metadata.Cart == nil {
+	if dec.Metadata.Cart == nil {
 		t.Fatal("cart metadata is nil")
 	}
 
-	if !reflect.DeepEqual(d.Metadata.BroadcastExtension, expectedBext) {
-		t.Fatalf("bext mismatch:\n got: %#v\nwant: %#v", d.Metadata.BroadcastExtension, expectedBext)
+	if !reflect.DeepEqual(dec.Metadata.BroadcastExtension, expectedBext) {
+		t.Fatalf("bext mismatch:\n got: %#v\nwant: %#v", dec.Metadata.BroadcastExtension, expectedBext)
 	}
 
-	if !reflect.DeepEqual(d.Metadata.Cart, expectedCart) {
-		t.Fatalf("cart mismatch:\n got: %#v\nwant: %#v", d.Metadata.Cart, expectedCart)
+	if !reflect.DeepEqual(dec.Metadata.Cart, expectedCart) {
+		t.Fatalf("cart mismatch:\n got: %#v\nwant: %#v", dec.Metadata.Cart, expectedCart)
 	}
 }

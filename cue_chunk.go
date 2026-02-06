@@ -101,7 +101,8 @@ func DecodeCueChunk(d *Decoder, ch *riff.Chunk) error {
 			for range nbrCues {
 				cuePoint := &CuePoint{}
 
-				if _, err = reader.Read(scratch); err != nil {
+				_, err = reader.Read(scratch)
+				if err != nil {
 					return ErrCuePointIDNotFound
 				}
 
@@ -112,7 +113,8 @@ func DecodeCueChunk(d *Decoder, ch *riff.Chunk) error {
 					return fmt.Errorf("failed to read cue point position: %w", err)
 				}
 
-				if _, err = reader.Read(scratch); err != nil {
+				_, err = reader.Read(scratch)
+				if err != nil {
 					return fmt.Errorf("failed to read data chunk ID: %w", err)
 				}
 

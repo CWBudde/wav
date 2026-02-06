@@ -15,8 +15,8 @@ import (
 )
 
 var (
-	flagFileToTag = flag.String("file", "", "Path to the wave file to tag")
-	flagDirToTag  = flag.String("dir", "", "Directory containing all the wav files to tag")
+	flagFileToTag   = flag.String("file", "", "Path to the wave file to tag")
+	flagDirToTag    = flag.String("dir", "", "Directory containing all the wav files to tag")
 	flagTitleRegexp = flag.String(
 		"regexp",
 		"",

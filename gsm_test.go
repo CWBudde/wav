@@ -303,13 +303,13 @@ func TestGSMDecodeBlock_InvalidSize(t *testing.T) {
 }
 
 func TestGSMIsValidFile(t *testing.T) {
-	f, err := os.Open("fixtures/addf8-GSM-GW.wav")
+	file, err := os.Open("fixtures/addf8-GSM-GW.wav")
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer f.Close()
+	defer file.Close()
 
-	d := NewDecoder(f)
+	d := NewDecoder(file)
 	if !d.IsValidFile() {
 		t.Fatal("GSM fixture should be a valid WAV file")
 	}

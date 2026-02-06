@@ -124,14 +124,14 @@ func TestChunkAPIs_NilReceivers(t *testing.T) {
 
 	d.SetRawChunks([]RawChunk{{ID: [4]byte{'a', 'b', 'c', 'd'}}})
 
-	var e *Encoder
-	if e.FormatChunk() != nil {
+	var enc *Encoder
+	if enc.FormatChunk() != nil {
 		t.Fatal("nil encoder FormatChunk should be nil")
 	}
 
-	if e.RawChunks() != nil {
+	if enc.RawChunks() != nil {
 		t.Fatal("nil encoder RawChunks should be nil")
 	}
 
-	e.SetRawChunks([]RawChunk{{ID: [4]byte{'a', 'b', 'c', 'd'}}})
+	enc.SetRawChunks([]RawChunk{{ID: [4]byte{'a', 'b', 'c', 'd'}}})
 }

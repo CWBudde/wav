@@ -206,7 +206,8 @@ func (e *Encoder) addBuffer(buf *audio.Float32Buffer) error {
 		e.frames++
 	}
 
-	if n, err := e.w.Write(e.buf.Bytes()); err != nil {
+	n, err := e.w.Write(e.buf.Bytes())
+	if err != nil {
 		e.WrittenBytes += n
 		return fmt.Errorf("failed to write buffer: %w", err)
 	}
@@ -218,14 +219,15 @@ func (e *Encoder) addBuffer(buf *audio.Float32Buffer) error {
 }
 
 func (e *Encoder) writeHeader() error {
+	if e == nil {
+		return errNilEncoder
+	}
+
 	if e.wroteHeader {
 		return errAlreadyWroteHdr
 	}
 
 	e.wroteHeader = true
-	if e == nil {
-		return errNilEncoder
-	}
 
 	if e.w == nil {
 		return errNilWriter
