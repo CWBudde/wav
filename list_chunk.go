@@ -164,8 +164,8 @@ func DecodeListChunk(d *Decoder, ch *riff.Chunk) error {
 	return nil
 }
 
-func encodeInfoChunk(e *Encoder) []byte {
-	if e == nil || e.Metadata == nil {
+func encodeInfoChunk(enc *Encoder) []byte {
+	if enc == nil || enc.Metadata == nil {
 		return nil
 	}
 
@@ -186,22 +186,22 @@ func encodeInfoChunk(e *Encoder) []byte {
 		marker [4]byte
 		value  string
 	}{
-		{markerIART, e.Metadata.Artist},
-		{markerICMT, e.Metadata.Comments},
-		{markerICOP, e.Metadata.Copyright},
-		{markerICRD, e.Metadata.CreationDate},
-		{markerIENG, e.Metadata.Engineer},
-		{markerITCH, e.Metadata.Technician},
-		{markerIGNR, e.Metadata.Genre},
-		{markerIKEY, e.Metadata.Keywords},
-		{markerIMED, e.Metadata.Medium},
-		{markerINAM, e.Metadata.Title},
-		{markerIPRD, e.Metadata.Product},
-		{markerISBJ, e.Metadata.Subject},
-		{markerISFT, e.Metadata.Software},
-		{markerISRC, e.Metadata.Source},
-		{markerIARL, e.Metadata.Location},
-		{markerITRK, e.Metadata.TrackNbr},
+		{markerIART, enc.Metadata.Artist},
+		{markerICMT, enc.Metadata.Comments},
+		{markerICOP, enc.Metadata.Copyright},
+		{markerICRD, enc.Metadata.CreationDate},
+		{markerIENG, enc.Metadata.Engineer},
+		{markerITCH, enc.Metadata.Technician},
+		{markerIGNR, enc.Metadata.Genre},
+		{markerIKEY, enc.Metadata.Keywords},
+		{markerIMED, enc.Metadata.Medium},
+		{markerINAM, enc.Metadata.Title},
+		{markerIPRD, enc.Metadata.Product},
+		{markerISBJ, enc.Metadata.Subject},
+		{markerISFT, enc.Metadata.Software},
+		{markerISRC, enc.Metadata.Source},
+		{markerIARL, enc.Metadata.Location},
+		{markerITRK, enc.Metadata.TrackNbr},
 	}
 
 	for _, field := range fields {

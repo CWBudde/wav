@@ -565,6 +565,7 @@ func (d *Decoder) readHeaders() error {
 	}
 
 	d.parser.Size = size
+
 	err = binary.Read(d.r, binary.BigEndian, &d.parser.Format)
 	if err != nil {
 		return fmt.Errorf("failed to read format: %w", err)

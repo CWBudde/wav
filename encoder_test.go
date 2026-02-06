@@ -371,13 +371,13 @@ func TestEncoder_WriteFrame_DefaultType(t *testing.T) {
 
 	outPath := path.Join("testOutput", "writeframe_int16.wav")
 
-	f, err := os.Create(outPath)
+	file, err := os.Create(outPath)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer os.Remove(outPath)
 
-	enc := NewEncoder(f, 44100, 16, 1, wavFormatPCM)
+	enc := NewEncoder(file, 44100, 16, 1, wavFormatPCM)
 	// WriteFrame with int16 goes through the default case
 	if err := enc.WriteFrame(int16(1000)); err != nil {
 		t.Fatalf("WriteFrame with int16 failed: %v", err)
@@ -387,7 +387,7 @@ func TestEncoder_WriteFrame_DefaultType(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	f.Close()
+	file.Close()
 }
 
 func TestEncoder_Close_NilEncoder(t *testing.T) {

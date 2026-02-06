@@ -109,40 +109,40 @@ func TestGsmUnpackBlock(t *testing.T) {
 	}
 
 	// Verify subframe parameters are in valid ranges.
-	for s := range 4 {
-		sub := f1.sub[s]
+	for subFrameIndex := range 4 {
+		sub := f1.sub[subFrameIndex]
 		if sub.Nc < 0 || sub.Nc > 127 {
-			t.Fatalf("f1.sub[%d].Nc=%d out of range", s, sub.Nc)
+			t.Fatalf("f1.sub[%d].Nc=%d out of range", subFrameIndex, sub.Nc)
 		}
 
 		if sub.bc < 0 || sub.bc > 3 {
-			t.Fatalf("f1.sub[%d].bc=%d out of range", s, sub.bc)
+			t.Fatalf("f1.sub[%d].bc=%d out of range", subFrameIndex, sub.bc)
 		}
 
 		if sub.Mc < 0 || sub.Mc > 3 {
-			t.Fatalf("f1.sub[%d].Mc=%d out of range", s, sub.Mc)
+			t.Fatalf("f1.sub[%d].Mc=%d out of range", subFrameIndex, sub.Mc)
 		}
 
 		if sub.xmaxc < 0 || sub.xmaxc > 63 {
-			t.Fatalf("f1.sub[%d].xmaxc=%d out of range", s, sub.xmaxc)
+			t.Fatalf("f1.sub[%d].xmaxc=%d out of range", subFrameIndex, sub.xmaxc)
 		}
 
 		for j, v := range sub.xMc {
 			if v < 0 || v > 7 {
-				t.Fatalf("f1.sub[%d].xMc[%d]=%d out of range", s, j, v)
+				t.Fatalf("f1.sub[%d].xMc[%d]=%d out of range", subFrameIndex, j, v)
 			}
 		}
 	}
 }
 
 func TestGSMFullPCMBuffer(t *testing.T) {
-	f, err := os.Open("fixtures/addf8-GSM-GW.wav")
+	file, err := os.Open("fixtures/addf8-GSM-GW.wav")
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer f.Close()
+	defer file.Close()
 
-	d := NewDecoder(f)
+	d := NewDecoder(file)
 
 	buf, err := d.FullPCMBuffer()
 	if err != nil {
@@ -189,18 +189,18 @@ func TestGSMPCMBuffer(t *testing.T) {
 	}
 	defer f.Close()
 
-	d := NewDecoder(f)
-	d.ReadInfo()
+	dec := NewDecoder(f)
+	dec.ReadInfo()
 
 	var allSamples []float32
 
 	buf := &audio.Float32Buffer{
-		Format: d.Format(),
+		Format: dec.Format(),
 		Data:   make([]float32, 255),
 	}
 
 	for {
-		n, err := d.PCMBuffer(buf)
+		n, err := dec.PCMBuffer(buf)
 		if err != nil {
 			t.Fatalf("PCMBuffer failed: %v", err)
 		}

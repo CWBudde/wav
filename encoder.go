@@ -535,7 +535,8 @@ func (e *Encoder) writeMetadata() error {
 		return nil
 	}
 
-	if err := e.encodeMetadataViaRegistry(); err != nil {
+	err := e.encodeMetadataViaRegistry()
+	if err != nil {
 		return err
 	}
 
@@ -544,7 +545,7 @@ func (e *Encoder) writeMetadata() error {
 		return nil
 	}
 
-	err := e.AddBE(CIDList)
+	err = e.AddBE(CIDList)
 	if err != nil {
 		return fmt.Errorf("failed to write the LIST chunk ID: %w", err)
 	}

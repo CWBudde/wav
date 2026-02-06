@@ -946,30 +946,30 @@ func TestDecoder_FmtChunkExtensible(t *testing.T) {
 	}
 	defer file.Close()
 
-	d := NewDecoder(file)
-	d.ReadInfo()
+	dec := NewDecoder(file)
+	dec.ReadInfo()
 
-	if err := d.Err(); err != nil {
+	if err := dec.Err(); err != nil {
 		t.Fatalf("read info failed: %v", err)
 	}
 
-	if d.FmtChunk == nil {
+	if dec.FmtChunk == nil {
 		t.Fatal("expected fmt chunk to be populated")
 	}
 
-	if d.FmtChunk.FormatTag != wavFormatExtensible {
-		t.Fatalf("expected extensible format tag, got %d", d.FmtChunk.FormatTag)
+	if dec.FmtChunk.FormatTag != wavFormatExtensible {
+		t.Fatalf("expected extensible format tag, got %d", dec.FmtChunk.FormatTag)
 	}
 
-	if d.FmtChunk.Extensible == nil {
+	if dec.FmtChunk.Extensible == nil {
 		t.Fatal("expected extensible metadata")
 	}
 
-	if d.FmtChunk.EffectiveFormatTag() != d.WavAudioFormat {
-		t.Fatalf("effective format mismatch, fmt=%d decoder=%d", d.FmtChunk.EffectiveFormatTag(), d.WavAudioFormat)
+	if dec.FmtChunk.EffectiveFormatTag() != dec.WavAudioFormat {
+		t.Fatalf("effective format mismatch, fmt=%d decoder=%d", dec.FmtChunk.EffectiveFormatTag(), dec.WavAudioFormat)
 	}
 
-	if d.FmtChunk.Extensible.ValidBitsPerSample == 0 {
+	if dec.FmtChunk.Extensible.ValidBitsPerSample == 0 {
 		t.Fatal("expected non-zero valid bits")
 	}
 }
@@ -1162,17 +1162,17 @@ func TestDecoder_Format(t *testing.T) {
 	dec := NewDecoder(file)
 	dec.ReadInfo()
 
-	f := dec.Format()
-	if f == nil {
+	format := dec.Format()
+	if format == nil {
 		t.Fatal("Format should not be nil")
 	}
 
-	if f.NumChannels != 1 {
-		t.Fatalf("expected 1 channel, got %d", f.NumChannels)
+	if format.NumChannels != 1 {
+		t.Fatalf("expected 1 channel, got %d", format.NumChannels)
 	}
 
-	if f.SampleRate != 22050 {
-		t.Fatalf("expected sample rate 22050, got %d", f.SampleRate)
+	if format.SampleRate != 22050 {
+		t.Fatalf("expected sample rate 22050, got %d", format.SampleRate)
 	}
 }
 
