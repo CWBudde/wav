@@ -71,7 +71,8 @@ func TestDecoderRewind(t *testing.T) {
 		t.Fatalf("expected to read 512 samples but got %d", num)
 	}
 
-	if err := decoder.Rewind(); err != nil {
+	err = decoder.Rewind()
+	if err != nil {
 		t.Fatal(err)
 	}
 
@@ -108,7 +109,8 @@ func TestDecoder_Duration(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		if err := file.Close(); err != nil {
+		err = file.Close()
+		if err != nil {
 			t.Fatal(err)
 		}
 
@@ -347,7 +349,9 @@ func TestDecoderMisalignedInstChunk(t *testing.T) {
 	floatBuf := make([]float32, 255)
 
 	buf := &audio.Float32Buffer{Data: floatBuf}
-	if _, err := d.PCMBuffer(buf); err != nil {
+
+	_, err = d.PCMBuffer(buf)
+	if err != nil {
 		t.Fatal(err)
 	}
 }
@@ -590,7 +594,8 @@ func TestDecoder_UnsupportedCompressedFormats(t *testing.T) {
 			}
 
 			// PCMBuffer must also return ErrUnsupportedCompressedFormat
-			if err := dec.Rewind(); err != nil {
+			err = dec.Rewind()
+			if err != nil {
 				t.Fatalf("rewind failed: %v", err)
 			}
 
@@ -884,7 +889,8 @@ func TestDecoder_EdgeCases(t *testing.T) {
 			// Should be able to read basic info
 			dec.ReadInfo()
 
-			if err := dec.Err(); err != nil {
+			err = dec.Err()
+			if err != nil {
 				t.Fatalf("unexpected error reading info: %v", err)
 			}
 
@@ -949,7 +955,8 @@ func TestDecoder_FmtChunkExtensible(t *testing.T) {
 	dec := NewDecoder(file)
 	dec.ReadInfo()
 
-	if err := dec.Err(); err != nil {
+	err = dec.Err()
+	if err != nil {
 		t.Fatalf("read info failed: %v", err)
 	}
 

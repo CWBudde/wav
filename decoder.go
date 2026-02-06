@@ -325,58 +325,6 @@ func (d *Decoder) FullPCMBuffer() (*audio.Float32Buffer, error) {
 	return d.decodePCMBuffer(format)
 }
 
-func (d *Decoder) decodeGSMBuffer(format *audio.Format) (*audio.Float32Buffer, error) {
-	dec := newGSMDecoder(int(d.CompressedSamples))
-
-	samples, err := dec.decodeAllBlocks(d.PCMChunk.R, int(d.CompressedSamples))
-	if err != nil {
-		return nil, err
-	}
-
-	return &audio.Float32Buffer{
-		Data:           samples,
-		Format:         format,
-		SourceBitDepth: 16,
-	}, nil
-}
-
-func (d *Decoder) decodePCMBuffer(format *audio.Format) (*audio.Float32Buffer, error) {
-	buf := &audio.Float32Buffer{
-		Data:           make([]float32, 4096),
-		Format:         format,
-		SourceBitDepth: int(d.BitDepth),
-	}
-
-	bPerSample := bytesPerSample(int(d.BitDepth))
-	sampleBufData := make([]byte, bPerSample)
-
-	decodeF, err := sampleDecodeFloat32Func(int(d.BitDepth), d.WavAudioFormat)
-	if err != nil {
-		return nil, fmt.Errorf("could not get sample decode func %w", err)
-	}
-
-	i := 0
-	for err == nil {
-		buf.Data[i], err = decodeF(d.PCMChunk, sampleBufData)
-		if err != nil {
-			break
-		}
-
-		i++
-		if i == len(buf.Data) {
-			buf.Data = append(buf.Data, make([]float32, 4096)...)
-		}
-	}
-
-	buf.Data = buf.Data[:i]
-
-	if errors.Is(err, io.EOF) {
-		err = nil
-	}
-
-	return buf, err
-}
-
 // PCMBuffer populates the passed PCM buffer.
 func (d *Decoder) PCMBuffer(buf *audio.Float32Buffer) (n int, err error) {
 	if buf == nil {
@@ -546,6 +494,58 @@ func (d *Decoder) Duration() (time.Duration, error) {
 // String implements the Stringer interface.
 func (d *Decoder) String() string {
 	return d.parser.String()
+}
+
+func (d *Decoder) decodeGSMBuffer(format *audio.Format) (*audio.Float32Buffer, error) {
+	dec := newGSMDecoder(int(d.CompressedSamples))
+
+	samples, err := dec.decodeAllBlocks(d.PCMChunk.R, int(d.CompressedSamples))
+	if err != nil {
+		return nil, err
+	}
+
+	return &audio.Float32Buffer{
+		Data:           samples,
+		Format:         format,
+		SourceBitDepth: 16,
+	}, nil
+}
+
+func (d *Decoder) decodePCMBuffer(format *audio.Format) (*audio.Float32Buffer, error) {
+	buf := &audio.Float32Buffer{
+		Data:           make([]float32, 4096),
+		Format:         format,
+		SourceBitDepth: int(d.BitDepth),
+	}
+
+	bPerSample := bytesPerSample(int(d.BitDepth))
+	sampleBufData := make([]byte, bPerSample)
+
+	decodeF, err := sampleDecodeFloat32Func(int(d.BitDepth), d.WavAudioFormat)
+	if err != nil {
+		return nil, fmt.Errorf("could not get sample decode func %w", err)
+	}
+
+	i := 0
+	for err == nil {
+		buf.Data[i], err = decodeF(d.PCMChunk, sampleBufData)
+		if err != nil {
+			break
+		}
+
+		i++
+		if i == len(buf.Data) {
+			buf.Data = append(buf.Data, make([]float32, 4096)...)
+		}
+	}
+
+	buf.Data = buf.Data[:i]
+
+	if errors.Is(err, io.EOF) {
+		err = nil
+	}
+
+	return buf, err
 }
 
 // readHeaders is safe to call multiple times.

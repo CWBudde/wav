@@ -4,6 +4,8 @@ version = '2'
 default = 'all'
 disable = [
   'depguard',
+  'funcorder',
+  'funlen',
   'godoclint',
   'gomoddirectives',
   'gosec',
@@ -11,6 +13,7 @@ disable = [
   'musttag',
   'nlreturn',
   'noctx',
+  'noinlineerr',
   'paralleltest',
   'recvcheck',
   'wsl',

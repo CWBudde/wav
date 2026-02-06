@@ -161,7 +161,9 @@ func newGSMDecoder(factSamples int) *gsmDecoder {
 // Each 65-byte block contains two GSM frames packed with LSB-first bit ordering.
 // Directly ported from libgsm/libsndfile gsm_decode.c WAV49 code.
 
-func unpackWAV49Block(data []byte) (f1, f2 gsmFrame, err error) {
+func unpackWAV49Block(data []byte) (gsmFrame, gsmFrame, error) {
+	var f1, f2 gsmFrame
+
 	if len(data) < gsmBlockSize {
 		return f1, f2, fmt.Errorf("%w: %d bytes, need %d", errGSMBlockTooShort, len(data), gsmBlockSize)
 	}

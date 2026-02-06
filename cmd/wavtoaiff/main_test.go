@@ -211,7 +211,8 @@ func TestRunHomeExpansion(t *testing.T) {
 		t.Fatalf("read fixture: %v", err)
 	}
 
-	if err := os.WriteFile(inPath, data, 0o644); err != nil {
+	err = os.WriteFile(inPath, data, 0o644)
+	if err != nil {
 		t.Fatalf("write temp wav: %v", err)
 	}
 

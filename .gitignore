@@ -17,6 +17,7 @@ go.work.sum
 # IDEs
 .vscode/
 .idea/
+.serena/
 .claude/
 *.swp
 *.swo

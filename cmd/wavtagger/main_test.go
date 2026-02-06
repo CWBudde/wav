@@ -155,7 +155,8 @@ func TestTagFileRegexpNoMatch(t *testing.T) {
 		t.Fatalf("read fixture: %v", err)
 	}
 
-	if err := os.WriteFile(inPath, data, 0o644); err != nil {
+	err = os.WriteFile(inPath, data, 0o644)
+	if err != nil {
 		t.Fatalf("write temp input: %v", err)
 	}
 
@@ -170,7 +171,8 @@ func TestTagFileRegexpNoMatch(t *testing.T) {
 		*flagTitleRegexp = ""
 	}()
 
-	if err := tagFile(inPath); err != nil {
+	err = tagFile(inPath)
+	if err != nil {
 		t.Fatalf("tagFile returned error: %v", err)
 	}
 

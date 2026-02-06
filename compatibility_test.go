@@ -60,7 +60,8 @@ func TestChunkInventory_RoundTripUnknownFixture(t *testing.T) {
 		t.Fatalf("close encoder: %v", err)
 	}
 
-	if err := out.Close(); err != nil {
+	err = out.Close()
+	if err != nil {
 		t.Fatalf("close output: %v", err)
 	}
 
@@ -140,7 +141,8 @@ func TestDecoder_StreamingParityAcrossSupportedFormats(t *testing.T) {
 				t.Fatalf("full decode: %v", err)
 			}
 
-			if err := in.Close(); err != nil {
+			err = in.Close()
+			if err != nil {
 				t.Fatalf("close input: %v", err)
 			}
 
@@ -153,7 +155,8 @@ func TestDecoder_StreamingParityAcrossSupportedFormats(t *testing.T) {
 			streamDec := NewDecoder(in2)
 			streamDec.ReadInfo()
 
-			if err := streamDec.Err(); err != nil {
+			err = streamDec.Err()
+			if err != nil {
 				t.Fatalf("read info: %v", err)
 			}
 
