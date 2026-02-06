@@ -32,6 +32,18 @@ func clampFloat32(value, min, max float32) float32 {
 	return value
 }
 
+func clampFloat64(value, min, max float64) float64 {
+	if value < min {
+		return min
+	}
+
+	if value > max {
+		return max
+	}
+
+	return value
+}
+
 func normalizePCMInt(sample int, bitDepth int) float32 {
 	switch bitDepth {
 	case 8:

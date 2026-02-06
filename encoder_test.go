@@ -24,6 +24,10 @@ func TestEncoderRoundTrip(t *testing.T) {
 			Software: "go-audio codec", Source: "Audacity generator", Location: "Los Angeles", TrackNbr: "42",
 		}, "1 ch,  44100 Hz, 8-bit unsigned integer"},
 		{"fixtures/32bit.wav", "testOutput/32bit.wav", nil, "1 ch, 44100 Hz, 32-bit little-endian signed integer"},
+		// IEEE Float formats
+		{"fixtures/M1F1-float32-AFsp.wav", "testOutput/M1F1-float32-AFsp.wav", nil, "2 ch, 8000 Hz, 32-bit IEEE float"},
+		{"fixtures/M1F1-float64-AFsp.wav", "testOutput/M1F1-float64-AFsp.wav", nil, "2 ch, 8000 Hz, 64-bit IEEE float"},
+		{"fixtures/stereofl.wav", "testOutput/stereofl.wav", nil, "2 ch, 22050 Hz, 32-bit IEEE float"},
 	}
 
 	for _, testCase := range testCases {

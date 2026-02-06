@@ -90,13 +90,19 @@ func (e *Encoder) addBuffer(buf *audio.Float32Buffer) error {
 			val := buf.Data[i*buf.Format.NumChannels+j]
 
 			if e.WavAudioFormat == wavFormatIEEEFloat {
-				if e.BitDepth != 32 {
+				switch e.BitDepth {
+				case 32:
+					err = binary.Write(e.buf, binary.LittleEndian, clampFloat32(val, -1, 1))
+					if err != nil {
+						return fmt.Errorf("failed to write float32 sample: %w", err)
+					}
+				case 64:
+					err = binary.Write(e.buf, binary.LittleEndian, clampFloat64(float64(val), -1, 1))
+					if err != nil {
+						return fmt.Errorf("failed to write float64 sample: %w", err)
+					}
+				default:
 					return fmt.Errorf("unsupported float bit depth %d", e.BitDepth)
-				}
-
-				err = binary.Write(e.buf, binary.LittleEndian, clampFloat32(val, -1, 1))
-				if err != nil {
-					return fmt.Errorf("failed to write float sample: %w", err)
 				}
 
 				continue
@@ -309,7 +315,14 @@ func (e *Encoder) WriteFrame(value any) error {
 	switch val := value.(type) {
 	case float32:
 		if e.WavAudioFormat == wavFormatIEEEFloat {
-			return e.AddLE(clampFloat32(val, -1, 1))
+			switch e.BitDepth {
+			case 32:
+				return e.AddLE(clampFloat32(val, -1, 1))
+			case 64:
+				return e.AddLE(clampFloat64(float64(val), -1, 1))
+			default:
+				return fmt.Errorf("unsupported float bit depth %d", e.BitDepth)
+			}
 		}
 
 		if e.WavAudioFormat == wavFormatALaw {
@@ -345,6 +358,17 @@ func (e *Encoder) WriteFrame(value any) error {
 			return fmt.Errorf("can't add frames of bit size %d", e.BitDepth)
 		}
 	case float64:
+		if e.WavAudioFormat == wavFormatIEEEFloat {
+			switch e.BitDepth {
+			case 32:
+				return e.AddLE(clampFloat32(float32(val), -1, 1))
+			case 64:
+				return e.AddLE(clampFloat64(val, -1, 1))
+			default:
+				return fmt.Errorf("unsupported float bit depth %d", e.BitDepth)
+			}
+		}
+
 		return e.WriteFrame(float32(val))
 	default:
 		return e.AddLE(value)
