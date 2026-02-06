@@ -148,3 +148,13 @@ Additionally, `SamplerInfo` provides MIDI and loop metadata from the smpl chunk.
 ## API Documentation
 
 See the full API reference on [GoDoc](https://godoc.org/github.com/cwbudde/wav).
+
+## Round-trip APIs
+
+For metadata/chunk-preserving workflows, the decoder and encoder now expose:
+
+- `FormatChunk() *FmtChunk`
+- `RawChunks() []RawChunk`
+- `SetRawChunks([]RawChunk)`
+
+These methods are additive and coexist with existing fields/methods for backward compatibility.

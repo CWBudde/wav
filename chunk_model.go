@@ -18,3 +18,16 @@ func (c RawChunk) Clone() RawChunk {
 
 	return out
 }
+
+func cloneRawChunks(chunks []RawChunk) []RawChunk {
+	if len(chunks) == 0 {
+		return nil
+	}
+
+	out := make([]RawChunk, len(chunks))
+	for i := range chunks {
+		out[i] = chunks[i].Clone()
+	}
+
+	return out
+}

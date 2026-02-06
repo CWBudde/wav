@@ -76,6 +76,7 @@ func DecodeCueChunk(d *Decoder, ch *riff.Chunk) error {
 		if err != nil && !errors.Is(err, io.EOF) && !errors.Is(err, io.ErrUnexpectedEOF) {
 			return fmt.Errorf("failed to read the CUE chunk - %w", err)
 		}
+
 		buf = buf[:n]
 
 		reader := bytes.NewReader(buf)

@@ -23,6 +23,7 @@ func TestChunkInventory_RoundTripUnknownFixture(t *testing.T) {
 
 	dec := NewDecoder(bytes.NewReader(input))
 	dec.ReadMetadata()
+
 	if err := dec.Err(); err != nil {
 		t.Fatalf("read metadata: %v", err)
 	}
@@ -37,6 +38,7 @@ func TestChunkInventory_RoundTripUnknownFixture(t *testing.T) {
 	}
 
 	outPath := filepath.Join(t.TempDir(), "inventory_roundtrip.wav")
+
 	out, err := os.Create(outPath)
 	if err != nil {
 		t.Fatalf("create output: %v", err)
@@ -61,6 +63,7 @@ func TestChunkInventory_RoundTripUnknownFixture(t *testing.T) {
 	}
 
 	beforeInventory := buildChunkInventory(before)
+
 	afterInventory := buildChunkInventory(after)
 	if !reflect.DeepEqual(beforeInventory, afterInventory) {
 		t.Fatalf("chunk inventory mismatch:\n before=%v\n after=%v", beforeInventory, afterInventory)
@@ -86,6 +89,7 @@ func TestUnsupportedCompressedFormats_ErrorMessageIncludesCodec(t *testing.T) {
 			defer f.Close()
 
 			d := NewDecoder(f)
+
 			_, err = d.FullPCMBuffer()
 			if !errors.Is(err, ErrUnsupportedCompressedFormat) {
 				t.Fatalf("expected ErrUnsupportedCompressedFormat, got %v", err)
@@ -122,6 +126,7 @@ func TestDecoder_StreamingParityAcrossSupportedFormats(t *testing.T) {
 			}
 
 			fullDec := NewDecoder(in)
+
 			fullBuf, err := fullDec.FullPCMBuffer()
 			if err != nil {
 				in.Close()
@@ -140,6 +145,7 @@ func TestDecoder_StreamingParityAcrossSupportedFormats(t *testing.T) {
 
 			streamDec := NewDecoder(in2)
 			streamDec.ReadInfo()
+
 			if err := streamDec.Err(); err != nil {
 				t.Fatalf("read info: %v", err)
 			}
