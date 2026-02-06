@@ -18,13 +18,19 @@ type chunkInventoryEntry struct {
 	size uint32
 }
 
+var (
+	errFileTooSmall         = errors.New("file too small")
+	errInvalidRiffWaveHdr   = errors.New("invalid riff/wave header")
+	errChunkExceedsFileSize = errors.New("chunk exceeds file size")
+)
+
 func parseWavChunks(data []byte) ([]testChunk, error) {
 	if len(data) < 12 {
-		return nil, errors.New("file too small")
+		return nil, errFileTooSmall
 	}
 
 	if string(data[0:4]) != "RIFF" || string(data[8:12]) != "WAVE" {
-		return nil, errors.New("invalid riff/wave header")
+		return nil, errInvalidRiffWaveHdr
 	}
 
 	chunks := make([]testChunk, 0)
@@ -37,7 +43,7 @@ func parseWavChunks(data []byte) ([]testChunk, error) {
 
 		end := offset + int(size)
 		if end > len(data) {
-			return nil, fmt.Errorf("chunk %q exceeds file size", id)
+			return nil, fmt.Errorf("%w: %q", errChunkExceedsFileSize, id)
 		}
 
 		payload := append([]byte(nil), data[offset:end]...)

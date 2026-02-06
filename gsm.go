@@ -16,6 +16,11 @@ const (
 	gsmSamplesPerFrame = 160
 )
 
+var (
+	errGSMBlockTooShort  = errors.New("GSM block too short")
+	errShortGSMBlockRead = errors.New("short GSM block read")
+)
+
 // Lookup tables from the GSM 06.10 specification.
 
 // Table 4.3b - LTP gain quantizer levels.
@@ -158,7 +163,7 @@ func newGSMDecoder(factSamples int) *gsmDecoder {
 
 func unpackWAV49Block(data []byte) (f1, f2 gsmFrame, err error) {
 	if len(data) < gsmBlockSize {
-		return f1, f2, fmt.Errorf("GSM block too short: %d bytes, need %d", len(data), gsmBlockSize)
+		return f1, f2, fmt.Errorf("%w: %d bytes, need %d", errGSMBlockTooShort, len(data), gsmBlockSize)
 	}
 
 	// Frame 1: bytes 0..32 (260 bits = 32.5 bytes)
@@ -601,7 +606,7 @@ func (g *gsmDecoder) decodeAllBlocks(r io.Reader, factSamples int) ([]float32, e
 				break
 			}
 
-			return nil, fmt.Errorf("short GSM block read: %d bytes", n)
+			return nil, fmt.Errorf("%w: %d bytes", errShortGSMBlockRead, n)
 		}
 
 		samples, decErr := g.decodeBlock(block)

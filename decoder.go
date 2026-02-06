@@ -38,6 +38,12 @@ var (
 	// implementation. The WAV file structure is valid but the audio codec is not
 	// supported.
 	ErrUnsupportedCompressedFormat = errors.New("unsupported compressed audio format")
+	errNilChunkOrParser            = errors.New("nil chunk/parser pointer")
+	errUnhandledByteDepth          = errors.New("unhandled byte depth")
+	errUnhandledFloatBitDepth      = errors.New("unhandled float bit depth")
+	errUnsupportedALawBitDepth     = errors.New("unsupported A-law bit depth")
+	errUnsupportedMuLawBitDepth    = errors.New("unsupported mu-law bit depth")
+	errUnsupportedWavFormat        = errors.New("unsupported wav format")
 )
 
 // Decoder handles the decoding of wav files.
@@ -624,7 +630,7 @@ func (d *Decoder) decodeHeaderChunkViaRegistry(chunk *riff.Chunk) (bool, error) 
 
 func decodeWavHeaderChunk(chunk *riff.Chunk, parser *riff.Parser) (*FmtChunk, error) {
 	if chunk == nil || parser == nil {
-		return nil, errors.New("nil chunk/parser pointer")
+		return nil, errNilChunkOrParser
 	}
 
 	fmtChunk := &FmtChunk{}
@@ -792,7 +798,7 @@ func sampleDecodeFunc(bitsPerSample int) (func(io.Reader, []byte) (int, error), 
 			return int(int32(binary.LittleEndian.Uint32(buf[:4]))), err
 		}, nil
 	default:
-		return nil, fmt.Errorf("unhandled byte depth:%d", bitsPerSample)
+		return nil, fmt.Errorf("%w: %d", errUnhandledByteDepth, bitsPerSample)
 	}
 }
 
@@ -824,13 +830,13 @@ func sampleDecodeFloat32Func(bitsPerSample int, wavFormat uint16) (func(io.Reade
 				return clampFloat32(float32(value), -1, 1), nil
 			}, nil
 		default:
-			return nil, fmt.Errorf("unhandled float bit depth:%d", bitsPerSample)
+			return nil, fmt.Errorf("%w: %d", errUnhandledFloatBitDepth, bitsPerSample)
 		}
 	}
 
 	if wavFormat == wavFormatALaw {
 		if bitsPerSample != 8 {
-			return nil, fmt.Errorf("unsupported A-law bit depth:%d", bitsPerSample)
+			return nil, fmt.Errorf("%w: %d", errUnsupportedALawBitDepth, bitsPerSample)
 		}
 
 		return func(r io.Reader, buf []byte) (float32, error) {
@@ -845,7 +851,7 @@ func sampleDecodeFloat32Func(bitsPerSample int, wavFormat uint16) (func(io.Reade
 
 	if wavFormat == wavFormatMuLaw {
 		if bitsPerSample != 8 {
-			return nil, fmt.Errorf("unsupported mu-law bit depth:%d", bitsPerSample)
+			return nil, fmt.Errorf("%w: %d", errUnsupportedMuLawBitDepth, bitsPerSample)
 		}
 
 		return func(r io.Reader, buf []byte) (float32, error) {
@@ -863,7 +869,7 @@ func sampleDecodeFloat32Func(bitsPerSample int, wavFormat uint16) (func(io.Reade
 	}
 
 	if wavFormat != wavFormatPCM {
-		return nil, fmt.Errorf("unsupported wav format:%d", wavFormat)
+		return nil, fmt.Errorf("%w: %d", errUnsupportedWavFormat, wavFormat)
 	}
 
 	decodeInt, err := sampleDecodeFunc(bitsPerSample)
