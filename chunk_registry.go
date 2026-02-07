@@ -80,14 +80,14 @@ func sniffListType(chnk *riff.Chunk) ([4]byte, error) {
 
 	var head [4]byte
 
-	n, err := io.ReadFull(chnk.R, head[:])
+	numRead, err := io.ReadFull(chnk.R, head[:])
 	if err != nil {
 		return listType, fmt.Errorf("failed to read LIST type: %w", err)
 	}
 
 	copy(listType[:], head[:])
 
-	remaining := io.LimitReader(chnk.R, int64(chnk.Size-n))
+	remaining := io.LimitReader(chnk.R, int64(chnk.Size-numRead))
 	chnk.R = io.MultiReader(bytes.NewReader(head[:]), remaining)
 
 	return listType, nil

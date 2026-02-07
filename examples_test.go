@@ -15,7 +15,6 @@ func ExampleDecoder_Duration() {
 
 	dur, err := NewDecoder(file).Duration()
 	if err != nil {
-		file.Close()
 		log.Fatal(err)
 	}
 
@@ -102,12 +101,23 @@ func ExampleDecoder_ReadMetadata() {
 	decoder := NewDecoder(file)
 	decoder.ReadMetadata()
 
-	if decoder.Err() != nil {
-		file.Close()
+	if err := decoder.Err(); err != nil {
 		log.Fatal(err)
 	}
 
-	fmt.Printf("%#v\n", decoder.Metadata)
+	if decoder.Metadata == nil {
+		fmt.Println("No metadata found")
+		return
+	}
+
+	fmt.Printf("Artist: %s\n", decoder.Metadata.Artist)
+	fmt.Printf("Title:  %s\n", decoder.Metadata.Title)
+	fmt.Printf("Album:  %s\n", decoder.Metadata.Product)
+	fmt.Printf("Track:  %s\n", decoder.Metadata.TrackNbr)
+
 	// Output:
-	// &wav.Metadata{SamplerInfo:(*wav.SamplerInfo)(nil), BroadcastExtension:(*wav.BroadcastExtension)(nil), Cart:(*wav.Cart)(nil), Artist:"artist", Comments:"my comment", Copyright:"", CreationDate:"2017", Engineer:"", Technician:"", Genre:"genre", Keywords:"", Medium:"", Title:"track title", Product:"album title", Subject:"", Software:"", Source:"", Location:"", TrackNbr:"42", CuePoints:[]*wav.CuePoint(nil)}
+	// Artist: artist
+	// Title:  track title
+	// Album:  album title
+	// Track:  42
 }

@@ -200,16 +200,16 @@ func TestGSMPCMBuffer(t *testing.T) {
 	}
 
 	for {
-		n, err := dec.PCMBuffer(buf)
+		numRead, err := dec.PCMBuffer(buf)
 		if err != nil {
 			t.Fatalf("PCMBuffer failed: %v", err)
 		}
 
-		if n == 0 {
+		if numRead == 0 {
 			break
 		}
 
-		allSamples = append(allSamples, buf.Data[:n]...)
+		allSamples = append(allSamples, buf.Data[:numRead]...)
 	}
 
 	if len(allSamples) != 23808 {
@@ -259,16 +259,16 @@ func TestGSMFullPCMBuffer_PCMBuffer_Parity(t *testing.T) {
 		}
 
 		for {
-			n, err := dec2.PCMBuffer(buf)
+			numRead, err := dec2.PCMBuffer(buf)
 			if err != nil {
 				t.Fatalf("chunk=%d: PCMBuffer failed: %v", chunkSize, err)
 			}
 
-			if n == 0 {
+			if numRead == 0 {
 				break
 			}
 
-			streamed = append(streamed, buf.Data[:n]...)
+			streamed = append(streamed, buf.Data[:numRead]...)
 		}
 
 		if len(streamed) != len(fullBuf.Data) {

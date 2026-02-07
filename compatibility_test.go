@@ -167,16 +167,16 @@ func TestDecoder_StreamingParityAcrossSupportedFormats(t *testing.T) {
 			}
 
 			for {
-				n, err := streamDec.PCMBuffer(tmp)
+				size, err := streamDec.PCMBuffer(tmp)
 				if err != nil {
 					t.Fatalf("stream decode: %v", err)
 				}
 
-				if n == 0 {
+				if size == 0 {
 					break
 				}
 
-				streamed = append(streamed, tmp.Data[:n]...)
+				streamed = append(streamed, tmp.Data[:size]...)
 			}
 
 			if len(streamed) != len(fullBuf.Data) {
