@@ -332,13 +332,13 @@ func TestEncoder_WriteFrame_G711(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			outPath := path.Join("testOutput", "writeframe_"+tt.name+".wav")
 
-			f, err := os.Create(outPath)
+			file, err := os.Create(outPath)
 			if err != nil {
 				t.Fatal(err)
 			}
 			defer os.Remove(outPath)
 
-			enc := NewEncoder(f, 8000, 8, 1, tt.format)
+			enc := NewEncoder(file, 8000, 8, 1, tt.format)
 			for range 100 {
 				err := enc.WriteFrame(float32(0.3))
 				if err != nil {
@@ -350,7 +350,7 @@ func TestEncoder_WriteFrame_G711(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			f.Close()
+			file.Close()
 
 			verify, err := os.Open(outPath)
 			if err != nil {

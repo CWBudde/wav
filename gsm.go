@@ -569,13 +569,13 @@ func (g *gsmDecoder) decodeFrame(frame *gsmFrame) [160]int16 {
 func (g *gsmDecoder) decodeBlock(block []byte) ([gsmSamplesPerBlock]int16, error) {
 	var out [gsmSamplesPerBlock]int16
 
-	f1, f2, err := unpackWAV49Block(block)
+	file1, file2, err := unpackWAV49Block(block)
 	if err != nil {
 		return out, err
 	}
 
-	s1 := g.decodeFrame(&f1)
-	s2 := g.decodeFrame(&f2)
+	s1 := g.decodeFrame(&file1)
+	s2 := g.decodeFrame(&file2)
 
 	copy(out[0:160], s1[:])
 	copy(out[160:320], s2[:])
@@ -584,7 +584,7 @@ func (g *gsmDecoder) decodeBlock(block []byte) ([gsmSamplesPerBlock]int16, error
 }
 
 // decodeAllBlocks reads all GSM blocks and returns float32 samples.
-func (g *gsmDecoder) decodeAllBlocks(r io.Reader, factSamples int) ([]float32, error) {
+func (g *gsmDecoder) decodeAllBlocks(reader io.Reader, factSamples int) ([]float32, error) {
 	var allSamples []float32
 
 	block := make([]byte, gsmBlockSize)
@@ -592,7 +592,7 @@ func (g *gsmDecoder) decodeAllBlocks(r io.Reader, factSamples int) ([]float32, e
 	var lastErr error
 
 	for {
-		n, err := io.ReadFull(r, block)
+		n, err := io.ReadFull(reader, block)
 
 		if shouldStopDecoding(n, err) {
 			break

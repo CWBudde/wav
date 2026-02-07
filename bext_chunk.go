@@ -27,29 +27,29 @@ var (
 )
 
 // DecodeBroadcastChunk decodes a bext chunk into decoder metadata.
-func DecodeBroadcastChunk(d *Decoder, ch *riff.Chunk) error {
-	if ch == nil {
+func DecodeBroadcastChunk(dec *Decoder, chnk *riff.Chunk) error {
+	if chnk == nil {
 		return errNilChunk
 	}
 
-	if d == nil {
+	if dec == nil {
 		return errNilDecoder
 	}
 
-	if ch.ID != CIDBext {
-		ch.Drain()
+	if chnk.ID != CIDBext {
+		chnk.Drain()
 		return nil
 	}
 
-	buf := make([]byte, ch.Size)
+	buf := make([]byte, chnk.Size)
 
-	_, err := io.ReadFull(ch, buf)
+	_, err := io.ReadFull(chnk, buf)
 	if err != nil {
 		return fmt.Errorf("failed to read the bext chunk - %w", err)
 	}
 
-	if d.Metadata == nil {
-		d.Metadata = &Metadata{}
+	if dec.Metadata == nil {
+		dec.Metadata = &Metadata{}
 	}
 
 	bext := &BroadcastExtension{}
@@ -91,9 +91,9 @@ func DecodeBroadcastChunk(d *Decoder, ch *riff.Chunk) error {
 		bext.CodingHistory = string(codingHistory)
 	}
 
-	ch.Drain()
+	chnk.Drain()
 
-	d.Metadata.BroadcastExtension = bext
+	dec.Metadata.BroadcastExtension = bext
 
 	return nil
 }

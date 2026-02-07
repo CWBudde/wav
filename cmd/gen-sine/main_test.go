@@ -16,22 +16,22 @@ func TestRunGeneratesWavFile(t *testing.T) {
 		t.Fatalf("run failed: %v", err)
 	}
 
-	file, err := os.Stat(outPath)
+	file1, err := os.Stat(outPath)
 	if err != nil {
 		t.Fatalf("output file missing: %v", err)
 	}
 
-	if file.Size() <= 44 {
-		t.Fatalf("unexpected small wav file size: %d", file.Size())
+	if file1.Size() <= 44 {
+		t.Fatalf("unexpected small wav file size: %d", file1.Size())
 	}
 
-	f, err := os.Open(outPath)
+	file2, err := os.Open(outPath)
 	if err != nil {
 		t.Fatalf("open generated file: %v", err)
 	}
-	defer f.Close()
+	defer file2.Close()
 
-	dec := wav.NewDecoder(f)
+	dec := wav.NewDecoder(file2)
 	if !dec.IsValidFile() {
 		t.Fatalf("generated file is not a valid wav")
 	}
@@ -64,13 +64,13 @@ func TestRunDefaultParams(t *testing.T) {
 		t.Fatalf("run with defaults failed: %v", err)
 	}
 
-	f, err := os.Open(outPath)
+	file, err := os.Open(outPath)
 	if err != nil {
 		t.Fatalf("open generated file: %v", err)
 	}
-	defer f.Close()
+	defer file.Close()
 
-	dec := wav.NewDecoder(f)
+	dec := wav.NewDecoder(file)
 
 	buf, err := dec.FullPCMBuffer()
 	if err != nil {

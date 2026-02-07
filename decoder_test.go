@@ -570,13 +570,13 @@ func TestDecoder_UnsupportedCompressedFormats(t *testing.T) {
 
 	for _, testCase := range testCases {
 		t.Run(filepath.Base(testCase.path), func(t *testing.T) {
-			f, err := os.Open(testCase.path)
+			file, err := os.Open(testCase.path)
 			if err != nil {
 				t.Fatal(err)
 			}
-			defer f.Close()
+			defer file.Close()
 
-			dec := NewDecoder(f)
+			dec := NewDecoder(file)
 
 			// File structure is valid WAV even though codec is unsupported
 			if !dec.IsValidFile() {
@@ -1254,16 +1254,16 @@ func TestDecoder_ReadMetadata_CalledTwice(t *testing.T) {
 	}
 	defer file.Close()
 
-	d := NewDecoder(file)
-	d.ReadMetadata()
+	dec := NewDecoder(file)
+	dec.ReadMetadata()
 
-	if d.Metadata == nil {
+	if dec.Metadata == nil {
 		t.Fatal("expected metadata after first call")
 	}
 
-	d.ReadMetadata()
+	dec.ReadMetadata()
 
-	if d.Metadata == nil {
+	if dec.Metadata == nil {
 		t.Fatal("metadata should still be present after second call")
 	}
 }
