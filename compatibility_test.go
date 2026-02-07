@@ -90,13 +90,13 @@ func TestUnsupportedCompressedFormats_ErrorMessageIncludesCodec(t *testing.T) {
 
 	for _, testCase := range testCases {
 		t.Run(filepath.Base(testCase.path), func(t *testing.T) {
-			f, err := os.Open(testCase.path)
+			file, err := os.Open(testCase.path)
 			if err != nil {
 				t.Fatal(err)
 			}
-			defer f.Close()
+			defer file.Close()
 
-			d := NewDecoder(f)
+			d := NewDecoder(file)
 
 			_, err = d.FullPCMBuffer()
 			if !errors.Is(err, ErrUnsupportedCompressedFormat) {

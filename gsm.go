@@ -162,10 +162,10 @@ func newGSMDecoder(factSamples int) *gsmDecoder {
 // Directly ported from libgsm/libsndfile gsm_decode.c WAV49 code.
 
 func unpackWAV49Block(data []byte) (gsmFrame, gsmFrame, error) {
-	var f1, f2 gsmFrame
+	var frame1, frame2 gsmFrame
 
 	if len(data) < gsmBlockSize {
-		return f1, f2, fmt.Errorf("%w: %d bytes, need %d", errGSMBlockTooShort, len(data), gsmBlockSize)
+		return frame1, frame2, fmt.Errorf("%w: %d bytes, need %d", errGSMBlockTooShort, len(data), gsmBlockSize)
 	}
 
 	// Frame 1: bytes 0..32 (260 bits = 32.5 bytes)
@@ -175,78 +175,78 @@ func unpackWAV49Block(data []byte) (gsmFrame, gsmFrame, error) {
 
 	shiftReg = uint16(data[byteIndex])
 	byteIndex++
-	f1.LAR[0] = int16(shiftReg & 0x3f)
+	frame1.LAR[0] = int16(shiftReg & 0x3f)
 	shiftReg >>= 6
 	shiftReg |= uint16(data[byteIndex]) << 2
 	byteIndex++
-	f1.LAR[1] = int16(shiftReg & 0x3f)
+	frame1.LAR[1] = int16(shiftReg & 0x3f)
 	shiftReg >>= 6
 	shiftReg |= uint16(data[byteIndex]) << 4
 	byteIndex++
-	f1.LAR[2] = int16(shiftReg & 0x1f)
+	frame1.LAR[2] = int16(shiftReg & 0x1f)
 	shiftReg >>= 5
-	f1.LAR[3] = int16(shiftReg & 0x1f)
+	frame1.LAR[3] = int16(shiftReg & 0x1f)
 	shiftReg >>= 5
 	shiftReg |= uint16(data[byteIndex]) << 2
 	byteIndex++
-	f1.LAR[4] = int16(shiftReg & 0xf)
+	frame1.LAR[4] = int16(shiftReg & 0xf)
 	shiftReg >>= 4
-	f1.LAR[5] = int16(shiftReg & 0xf)
+	frame1.LAR[5] = int16(shiftReg & 0xf)
 	shiftReg >>= 4
 	shiftReg |= uint16(data[byteIndex]) << 2
 	byteIndex++ // byte 4
-	f1.LAR[6] = int16(shiftReg & 0x7)
+	frame1.LAR[6] = int16(shiftReg & 0x7)
 	shiftReg >>= 3
-	f1.LAR[7] = int16(shiftReg & 0x7)
+	frame1.LAR[7] = int16(shiftReg & 0x7)
 	shiftReg >>= 3
 
 	// Subframes 0-3 for frame 1
 	for subframeIdx := range 4 {
 		shiftReg |= uint16(data[byteIndex]) << 4
 		byteIndex++
-		f1.sub[subframeIdx].Nc = int16(shiftReg & 0x7f)
+		frame1.sub[subframeIdx].Nc = int16(shiftReg & 0x7f)
 		shiftReg >>= 7
-		f1.sub[subframeIdx].bc = int16(shiftReg & 0x3)
+		frame1.sub[subframeIdx].bc = int16(shiftReg & 0x3)
 		shiftReg >>= 2
-		f1.sub[subframeIdx].Mc = int16(shiftReg & 0x3)
+		frame1.sub[subframeIdx].Mc = int16(shiftReg & 0x3)
 		shiftReg >>= 2
 		shiftReg |= uint16(data[byteIndex]) << 1
 		byteIndex++
-		f1.sub[subframeIdx].xmaxc = int16(shiftReg & 0x3f)
+		frame1.sub[subframeIdx].xmaxc = int16(shiftReg & 0x3f)
 		shiftReg >>= 6
-		f1.sub[subframeIdx].xMc[0] = int16(shiftReg & 0x7)
+		frame1.sub[subframeIdx].xMc[0] = int16(shiftReg & 0x7)
 		shiftReg = uint16(data[byteIndex])
 		byteIndex++
-		f1.sub[subframeIdx].xMc[1] = int16(shiftReg & 0x7)
+		frame1.sub[subframeIdx].xMc[1] = int16(shiftReg & 0x7)
 		shiftReg >>= 3
-		f1.sub[subframeIdx].xMc[2] = int16(shiftReg & 0x7)
+		frame1.sub[subframeIdx].xMc[2] = int16(shiftReg & 0x7)
 		shiftReg >>= 3
 		shiftReg |= uint16(data[byteIndex]) << 2
 		byteIndex++
-		f1.sub[subframeIdx].xMc[3] = int16(shiftReg & 0x7)
+		frame1.sub[subframeIdx].xMc[3] = int16(shiftReg & 0x7)
 		shiftReg >>= 3
-		f1.sub[subframeIdx].xMc[4] = int16(shiftReg & 0x7)
+		frame1.sub[subframeIdx].xMc[4] = int16(shiftReg & 0x7)
 		shiftReg >>= 3
-		f1.sub[subframeIdx].xMc[5] = int16(shiftReg & 0x7)
+		frame1.sub[subframeIdx].xMc[5] = int16(shiftReg & 0x7)
 		shiftReg >>= 3
 		shiftReg |= uint16(data[byteIndex]) << 1
 		byteIndex++
-		f1.sub[subframeIdx].xMc[6] = int16(shiftReg & 0x7)
+		frame1.sub[subframeIdx].xMc[6] = int16(shiftReg & 0x7)
 		shiftReg >>= 3
-		f1.sub[subframeIdx].xMc[7] = int16(shiftReg & 0x7)
+		frame1.sub[subframeIdx].xMc[7] = int16(shiftReg & 0x7)
 		shiftReg >>= 3
-		f1.sub[subframeIdx].xMc[8] = int16(shiftReg & 0x7)
+		frame1.sub[subframeIdx].xMc[8] = int16(shiftReg & 0x7)
 		shiftReg = uint16(data[byteIndex])
 		byteIndex++
-		f1.sub[subframeIdx].xMc[9] = int16(shiftReg & 0x7)
+		frame1.sub[subframeIdx].xMc[9] = int16(shiftReg & 0x7)
 		shiftReg >>= 3
-		f1.sub[subframeIdx].xMc[10] = int16(shiftReg & 0x7)
+		frame1.sub[subframeIdx].xMc[10] = int16(shiftReg & 0x7)
 		shiftReg >>= 3
 		shiftReg |= uint16(data[byteIndex]) << 2
 		byteIndex++
-		f1.sub[subframeIdx].xMc[11] = int16(shiftReg & 0x7)
+		frame1.sub[subframeIdx].xMc[11] = int16(shiftReg & 0x7)
 		shiftReg >>= 3
-		f1.sub[subframeIdx].xMc[12] = int16(shiftReg & 0x7)
+		frame1.sub[subframeIdx].xMc[12] = int16(shiftReg & 0x7)
 		shiftReg >>= 3
 	}
 
@@ -257,78 +257,78 @@ func unpackWAV49Block(data []byte) (gsmFrame, gsmFrame, error) {
 	shiftReg = frameChain
 	shiftReg |= uint16(data[byteIndex]) << 4
 	byteIndex++
-	f2.LAR[0] = int16(shiftReg & 0x3f)
+	frame2.LAR[0] = int16(shiftReg & 0x3f)
 	shiftReg >>= 6
-	f2.LAR[1] = int16(shiftReg & 0x3f)
+	frame2.LAR[1] = int16(shiftReg & 0x3f)
 	shiftReg = uint16(data[byteIndex])
 	byteIndex++
-	f2.LAR[2] = int16(shiftReg & 0x1f)
+	frame2.LAR[2] = int16(shiftReg & 0x1f)
 	shiftReg >>= 5
 	shiftReg |= uint16(data[byteIndex]) << 3
 	byteIndex++
-	f2.LAR[3] = int16(shiftReg & 0x1f)
+	frame2.LAR[3] = int16(shiftReg & 0x1f)
 	shiftReg >>= 5
-	f2.LAR[4] = int16(shiftReg & 0xf)
+	frame2.LAR[4] = int16(shiftReg & 0xf)
 	shiftReg >>= 4
 	shiftReg |= uint16(data[byteIndex]) << 2
 	byteIndex++
-	f2.LAR[5] = int16(shiftReg & 0xf)
+	frame2.LAR[5] = int16(shiftReg & 0xf)
 	shiftReg >>= 4
-	f2.LAR[6] = int16(shiftReg & 0x7)
+	frame2.LAR[6] = int16(shiftReg & 0x7)
 	shiftReg >>= 3
-	f2.LAR[7] = int16(shiftReg & 0x7)
+	frame2.LAR[7] = int16(shiftReg & 0x7)
 
 	// Subframes 0-3 for frame 2
 	for subframeIdx := range 4 {
 		shiftReg = uint16(data[byteIndex])
 		byteIndex++
-		f2.sub[subframeIdx].Nc = int16(shiftReg & 0x7f)
+		frame2.sub[subframeIdx].Nc = int16(shiftReg & 0x7f)
 		shiftReg >>= 7
 		shiftReg |= uint16(data[byteIndex]) << 1
 		byteIndex++
-		f2.sub[subframeIdx].bc = int16(shiftReg & 0x3)
+		frame2.sub[subframeIdx].bc = int16(shiftReg & 0x3)
 		shiftReg >>= 2
-		f2.sub[subframeIdx].Mc = int16(shiftReg & 0x3)
+		frame2.sub[subframeIdx].Mc = int16(shiftReg & 0x3)
 		shiftReg >>= 2
 		shiftReg |= uint16(data[byteIndex]) << 5
 		byteIndex++
-		f2.sub[subframeIdx].xmaxc = int16(shiftReg & 0x3f)
+		frame2.sub[subframeIdx].xmaxc = int16(shiftReg & 0x3f)
 		shiftReg >>= 6
-		f2.sub[subframeIdx].xMc[0] = int16(shiftReg & 0x7)
+		frame2.sub[subframeIdx].xMc[0] = int16(shiftReg & 0x7)
 		shiftReg >>= 3
-		f2.sub[subframeIdx].xMc[1] = int16(shiftReg & 0x7)
+		frame2.sub[subframeIdx].xMc[1] = int16(shiftReg & 0x7)
 		shiftReg >>= 3
 		shiftReg |= uint16(data[byteIndex]) << 1
 		byteIndex++
-		f2.sub[subframeIdx].xMc[2] = int16(shiftReg & 0x7)
+		frame2.sub[subframeIdx].xMc[2] = int16(shiftReg & 0x7)
 		shiftReg >>= 3
-		f2.sub[subframeIdx].xMc[3] = int16(shiftReg & 0x7)
+		frame2.sub[subframeIdx].xMc[3] = int16(shiftReg & 0x7)
 		shiftReg >>= 3
-		f2.sub[subframeIdx].xMc[4] = int16(shiftReg & 0x7)
+		frame2.sub[subframeIdx].xMc[4] = int16(shiftReg & 0x7)
 		shiftReg = uint16(data[byteIndex])
 		byteIndex++
-		f2.sub[subframeIdx].xMc[5] = int16(shiftReg & 0x7)
+		frame2.sub[subframeIdx].xMc[5] = int16(shiftReg & 0x7)
 		shiftReg >>= 3
-		f2.sub[subframeIdx].xMc[6] = int16(shiftReg & 0x7)
+		frame2.sub[subframeIdx].xMc[6] = int16(shiftReg & 0x7)
 		shiftReg >>= 3
 		shiftReg |= uint16(data[byteIndex]) << 2
 		byteIndex++
-		f2.sub[subframeIdx].xMc[7] = int16(shiftReg & 0x7)
+		frame2.sub[subframeIdx].xMc[7] = int16(shiftReg & 0x7)
 		shiftReg >>= 3
-		f2.sub[subframeIdx].xMc[8] = int16(shiftReg & 0x7)
+		frame2.sub[subframeIdx].xMc[8] = int16(shiftReg & 0x7)
 		shiftReg >>= 3
-		f2.sub[subframeIdx].xMc[9] = int16(shiftReg & 0x7)
+		frame2.sub[subframeIdx].xMc[9] = int16(shiftReg & 0x7)
 		shiftReg >>= 3
 		shiftReg |= uint16(data[byteIndex]) << 1
 		byteIndex++
-		f2.sub[subframeIdx].xMc[10] = int16(shiftReg & 0x7)
+		frame2.sub[subframeIdx].xMc[10] = int16(shiftReg & 0x7)
 		shiftReg >>= 3
-		f2.sub[subframeIdx].xMc[11] = int16(shiftReg & 0x7)
+		frame2.sub[subframeIdx].xMc[11] = int16(shiftReg & 0x7)
 		shiftReg >>= 3
-		f2.sub[subframeIdx].xMc[12] = int16(shiftReg & 0x7)
+		frame2.sub[subframeIdx].xMc[12] = int16(shiftReg & 0x7)
 	}
 
-	return f1, f2, nil
+	return frame1, frame2, nil
 }
 
 // RPE decoding.
@@ -569,13 +569,13 @@ func (g *gsmDecoder) decodeFrame(frame *gsmFrame) [160]int16 {
 func (g *gsmDecoder) decodeBlock(block []byte) ([gsmSamplesPerBlock]int16, error) {
 	var out [gsmSamplesPerBlock]int16
 
-	file1, file2, err := unpackWAV49Block(block)
+	frame1, frame2, err := unpackWAV49Block(block)
 	if err != nil {
 		return out, err
 	}
 
-	s1 := g.decodeFrame(&file1)
-	s2 := g.decodeFrame(&file2)
+	s1 := g.decodeFrame(&frame1)
+	s2 := g.decodeFrame(&frame2)
 
 	copy(out[0:160], s1[:])
 	copy(out[160:320], s2[:])
@@ -592,13 +592,13 @@ func (g *gsmDecoder) decodeAllBlocks(reader io.Reader, factSamples int) ([]float
 	var lastErr error
 
 	for {
-		n, err := io.ReadFull(reader, block)
+		bytesRead, err := io.ReadFull(reader, block)
 
-		if shouldStopDecoding(n, err) {
+		if shouldStopDecoding(bytesRead, err) {
 			break
 		}
 
-		validationErr := validateBlockSize(n, err)
+		validationErr := validateBlockSize(bytesRead, err)
 		if validationErr != nil {
 			return nil, validationErr
 		}
@@ -623,17 +623,17 @@ func (g *gsmDecoder) decodeAllBlocks(reader io.Reader, factSamples int) ([]float
 	return g.trimToFactSamples(allSamples, factSamples), nil
 }
 
-func shouldStopDecoding(n int, err error) bool {
-	return n == 0 || (errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF)) && n == 0
+func shouldStopDecoding(numBytes int, err error) bool {
+	return numBytes == 0 || (errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF)) && numBytes == 0
 }
 
-func validateBlockSize(n int, err error) error {
-	if n < gsmBlockSize {
+func validateBlockSize(numBytes int, err error) error {
+	if numBytes < gsmBlockSize {
 		if errors.Is(err, io.ErrUnexpectedEOF) {
 			return nil
 		}
 
-		return fmt.Errorf("%w: %d bytes", errShortGSMBlockRead, n)
+		return fmt.Errorf("%w: %d bytes", errShortGSMBlockRead, numBytes)
 	}
 
 	return nil
@@ -655,7 +655,7 @@ func (g *gsmDecoder) trimToFactSamples(samples []float32, factSamples int) []flo
 
 // decodeToBuffer fills out with decoded float32 samples for streaming PCMBuffer use.
 func (g *gsmDecoder) decodeToBuffer(r io.Reader, out []float32) (int, error) {
-	n := 0
+	numRead := 0
 
 	// Drain leftover from previous block first.
 	if g.leftoverPos < len(g.leftover) {
@@ -678,7 +678,7 @@ func (g *gsmDecoder) decodeToBuffer(r io.Reader, out []float32) (int, error) {
 		copy(out[:avail], g.leftover[g.leftoverPos:g.leftoverPos+avail])
 		g.leftoverPos += avail
 		g.delivered += avail
-		n += avail
+		numRead += avail
 
 		if g.leftoverPos >= len(g.leftover) {
 			g.leftover = nil
@@ -689,29 +689,29 @@ func (g *gsmDecoder) decodeToBuffer(r io.Reader, out []float32) (int, error) {
 	block := make([]byte, gsmBlockSize)
 
 	var (
-		err     error
-		readErr error
-		nr      int
+		err       error
+		readErr   error
+		bytesRead int
 	)
 
-	for n < len(out) {
+	for numRead < len(out) {
 		// Check factSamples limit.
 		if g.factSamples > 0 && g.delivered >= g.factSamples {
 			break
 		}
 
-		nr, readErr = io.ReadFull(r, block)
-		if nr == 0 || (errors.Is(readErr, io.EOF) || errors.Is(readErr, io.ErrUnexpectedEOF)) && nr == 0 {
+		bytesRead, readErr = io.ReadFull(r, block)
+		if bytesRead == 0 || (errors.Is(readErr, io.EOF) || errors.Is(readErr, io.ErrUnexpectedEOF)) && bytesRead == 0 {
 			break
 		}
 
-		if nr < gsmBlockSize {
+		if bytesRead < gsmBlockSize {
 			break
 		}
 
 		samples, decErr := g.decodeBlock(block)
 		if decErr != nil {
-			return n, decErr
+			return numRead, decErr
 		}
 
 		// Convert to float32.
@@ -720,7 +720,7 @@ func (g *gsmDecoder) decodeToBuffer(r io.Reader, out []float32) (int, error) {
 			floatSamples[i] = normalizePCMInt(int(s), 16)
 		}
 
-		remaining := len(out) - n
+		remaining := len(out) - numRead
 
 		blockSamples := gsmSamplesPerBlock
 		if g.factSamples > 0 && g.delivered+blockSamples > g.factSamples {
@@ -728,12 +728,12 @@ func (g *gsmDecoder) decodeToBuffer(r io.Reader, out []float32) (int, error) {
 		}
 
 		if remaining >= blockSamples {
-			copy(out[n:n+blockSamples], floatSamples[:blockSamples])
-			n += blockSamples
+			copy(out[numRead:numRead+blockSamples], floatSamples[:blockSamples])
+			numRead += blockSamples
 			g.delivered += blockSamples
 		} else {
-			copy(out[n:n+remaining], floatSamples[:remaining])
-			n += remaining
+			copy(out[numRead:numRead+remaining], floatSamples[:remaining])
+			numRead += remaining
 			g.delivered += remaining
 
 			// Save the rest as leftover.
@@ -751,5 +751,5 @@ func (g *gsmDecoder) decodeToBuffer(r io.Reader, out []float32) (int, error) {
 		}
 	}
 
-	return n, err
+	return numRead, err
 }

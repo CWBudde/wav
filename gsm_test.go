@@ -183,13 +183,13 @@ func TestGSMFullPCMBuffer(t *testing.T) {
 }
 
 func TestGSMPCMBuffer(t *testing.T) {
-	f, err := os.Open("fixtures/addf8-GSM-GW.wav")
+	file, err := os.Open("fixtures/addf8-GSM-GW.wav")
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer f.Close()
+	defer file.Close()
 
-	dec := NewDecoder(f)
+	dec := NewDecoder(file)
 	dec.ReadInfo()
 
 	var allSamples []float32

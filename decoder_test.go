@@ -1237,13 +1237,13 @@ func TestDecoder_PCMBuffer_NilBuffer(t *testing.T) {
 
 	d := NewDecoder(file)
 
-	n, err := d.PCMBuffer(nil)
+	numRead, err := d.PCMBuffer(nil)
 	if err != nil {
 		t.Fatalf("PCMBuffer(nil) should not error, got %v", err)
 	}
 
-	if n != 0 {
-		t.Fatalf("PCMBuffer(nil) should return 0, got %d", n)
+	if numRead != 0 {
+		t.Fatalf("PCMBuffer(nil) should return 0, got %d", numRead)
 	}
 }
 

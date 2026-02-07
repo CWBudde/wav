@@ -55,20 +55,20 @@ func DecodeBroadcastChunk(dec *Decoder, chnk *riff.Chunk) error {
 	bext := &BroadcastExtension{}
 	offset := 0
 
-	take := func(n int) []byte {
-		out := make([]byte, n)
+	take := func(size int) []byte {
+		out := make([]byte, size)
 		if offset < len(buf) {
-			end := min(offset+n, len(buf))
+			end := min(offset+size, len(buf))
 			copy(out, buf[offset:end])
 		}
 
-		offset += n
+		offset += size
 
 		return out
 	}
 
-	readFixedString := func(n int) string {
-		s := nullTermStr(take(n))
+	readFixedString := func(size int) string {
+		s := nullTermStr(take(size))
 		return strings.TrimRight(s, " ")
 	}
 
