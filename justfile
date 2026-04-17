@@ -40,3 +40,7 @@ check: test lint cover
 
 # Default target
 default: build
+
+fix:
+    just lint-fix
+    just fmt
