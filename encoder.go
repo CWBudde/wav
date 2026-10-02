@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"time"
 
 	"github.com/go-audio/audio"
 	"github.com/go-audio/riff"
@@ -41,6 +40,7 @@ type Encoder struct {
 	frames           int
 	pcmChunkStarted  bool
 	pcmChunkSizePos  int
+	pcmChunkSize     uint32
 	wroteHeader      bool // true if we've written the header out
 	wroteUnknownPre  bool
 	wroteUnknownPost bool
@@ -48,10 +48,11 @@ type Encoder struct {
 
 // NewEncoder creates a new encoder to create a new wav file.
 // Don't forget to add Frames to the encoder before writing.
+// Its temporary sample buffer is allocated lazily on the first Write.
 func NewEncoder(w io.WriteSeeker, sampleRate, bitDepth, numChans, audioFormat int) *Encoder {
 	return &Encoder{
 		w:              w,
-		buf:            bytes.NewBuffer(make([]byte, 0, bytesNumFromDuration(time.Minute, sampleRate, bitDepth)*numChans)),
+		buf:            new(bytes.Buffer),
 		SampleRate:     sampleRate,
 		BitDepth:       bitDepth,
 		NumChans:       numChans,
@@ -131,12 +132,12 @@ func (e *Encoder) addBuffer(buf *audio.Float32Buffer) error {
 			if audioFormat == wavFormatIEEEFloat {
 				switch e.BitDepth {
 				case 32:
-					err = binary.Write(e.buf, binary.LittleEndian, clampFloat32(val, -1, 1))
+					err = binary.Write(e.buf, binary.LittleEndian, val)
 					if err != nil {
 						return fmt.Errorf("failed to write float32 sample: %w", err)
 					}
 				case 64:
-					err = binary.Write(e.buf, binary.LittleEndian, clampFloat64(float64(val), -1, 1))
+					err = binary.Write(e.buf, binary.LittleEndian, float64(val))
 					if err != nil {
 						return fmt.Errorf("failed to write float64 sample: %w", err)
 					}
@@ -342,9 +343,9 @@ func (e *Encoder) WriteFrame(value any) error {
 		if audioFormat == wavFormatIEEEFloat {
 			switch e.BitDepth {
 			case 32:
-				return e.AddLE(clampFloat32(val, -1, 1))
+				return e.AddLE(val)
 			case 64:
-				return e.AddLE(clampFloat64(float64(val), -1, 1))
+				return e.AddLE(float64(val))
 			default:
 				return fmt.Errorf("%w: %d", errEncUnsupportedFloatBitDepth, e.BitDepth)
 			}
@@ -386,9 +387,9 @@ func (e *Encoder) WriteFrame(value any) error {
 		if e.effectiveAudioFormat() == wavFormatIEEEFloat {
 			switch e.BitDepth {
 			case 32:
-				return e.AddLE(clampFloat32(float32(val), -1, 1))
+				return e.AddLE(float32(val))
 			case 64:
-				return e.AddLE(clampFloat64(val, -1, 1))
+				return e.AddLE(val)
 			default:
 				return fmt.Errorf("%w: %d", errEncUnsupportedFloatBitDepth, e.BitDepth)
 			}
@@ -555,7 +556,15 @@ func (e *Encoder) writeMetadata() error {
 		return fmt.Errorf("failed to write the LIST chunk size: %w", err)
 	}
 
-	return e.AddBE(chunkData)
+	if err := e.AddBE(chunkData); err != nil {
+		return err
+	}
+
+	if len(chunkData)%2 == 1 {
+		return e.AddLE(uint8(0))
+	}
+
+	return nil
 }
 
 func (e *Encoder) encodeMetadataViaRegistry() error {
@@ -646,6 +655,10 @@ func (e *Encoder) Close() error {
 	}
 
 	if !e.wroteUnknownPost {
+		if err := e.finishDataChunk(); err != nil {
+			return err
+		}
+
 		err := e.writeUnknownChunks(false)
 		if err != nil {
 			return fmt.Errorf("failed to write post-data unknown chunks: %w", err)
@@ -681,9 +694,7 @@ func (e *Encoder) Close() error {
 			return fmt.Errorf("failed to seek to PCM chunk size position: %w", err)
 		}
 
-		chunksize := uint32((e.BitDepth / 8) * e.NumChans * e.frames)
-
-		err = e.AddLE(chunksize)
+		err = e.AddLE(e.pcmChunkSize)
 		if err != nil {
 			return fmt.Errorf("%w when writing wav data chunk size header", err)
 		}
@@ -699,6 +710,24 @@ func (e *Encoder) Close() error {
 		err := f.Sync()
 		if err != nil {
 			return fmt.Errorf("failed to sync file: %w", err)
+		}
+	}
+
+	return nil
+}
+
+func (e *Encoder) finishDataChunk() error {
+	if !e.pcmChunkStarted {
+		return nil
+	}
+
+	// The data chunk size excludes its alignment byte and any chunks that
+	// follow. Count serialized samples rather than frames: WriteFrame can
+	// write a single sample of a multichannel stream.
+	e.pcmChunkSize = uint32(e.WrittenBytes - e.pcmChunkSizePos - 4)
+	if e.pcmChunkSize%2 == 1 {
+		if err := e.AddLE(uint8(0)); err != nil {
+			return fmt.Errorf("failed to write data chunk padding: %w", err)
 		}
 	}
 

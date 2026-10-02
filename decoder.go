@@ -63,6 +63,7 @@ type Decoder struct {
 	err             error
 	PCMSize         int
 	pcmDataAccessed bool
+	dataPadding     bool
 	// pcmChunk is available so we can use the LimitReader
 	PCMChunk *riff.Chunk
 	// Metadata for the current file
@@ -107,6 +108,7 @@ func (d *Decoder) Rewind() error {
 	// we have to user a new parser since it's read only and can't be seeked
 	d.parser = riff.New(d.r)
 	d.pcmDataAccessed = false
+	d.dataPadding = false
 	d.PCMChunk = nil
 	d.err = nil
 	d.NumChans = 0
@@ -445,6 +447,14 @@ func (d *Decoder) NextChunk() (*riff.Chunk, error) {
 		return nil, d.err
 	}
 
+	if d.dataPadding {
+		if _, d.err = io.CopyN(io.Discard, d.r, 1); d.err != nil {
+			return nil, fmt.Errorf("failed to read data chunk padding: %w", d.err)
+		}
+
+		d.dataPadding = false
+	}
+
 	var (
 		id   [4]byte
 		size uint32
@@ -465,7 +475,13 @@ func (d *Decoder) NextChunk() (*riff.Chunk, error) {
 	// must be placed at the end of the sample data.
 	// The "data" chunk header's size should not include this byte.
 	if size%2 == 1 {
-		size++
+		if id == riff.DataFormatID {
+			// Audio readers must not treat the alignment byte as a sample.
+			// Consume it only when moving on to the next chunk.
+			d.dataPadding = true
+		} else {
+			size++
+		}
 	}
 
 	chnk := &riff.Chunk{
@@ -828,7 +844,8 @@ func sampleDecodeFunc(bitsPerSample int) (func(io.Reader, []byte) (int, error), 
 }
 
 // sampleDecodeFloat32Func returns a function that can be used to convert
-// a byte range into a normalized float32 value.
+// a byte range into a float32 value. Integer PCM is normalized; IEEE floats
+// retain their amplitude and are converted only when narrowing from float64.
 func sampleDecodeFloat32Func(bitsPerSample int, wavFormat uint16) (func(io.Reader, []byte) (float32, error), error) {
 	if wavFormat == wavFormatIEEEFloat {
 		switch bitsPerSample {
@@ -841,7 +858,7 @@ func sampleDecodeFloat32Func(bitsPerSample int, wavFormat uint16) (func(io.Reade
 
 				value := math.Float32frombits(binary.LittleEndian.Uint32(buf[:4]))
 
-				return clampFloat32(value, -1, 1), nil
+				return value, nil
 			}, nil
 		case 64:
 			return func(r io.Reader, buf []byte) (float32, error) {
@@ -852,7 +869,7 @@ func sampleDecodeFloat32Func(bitsPerSample int, wavFormat uint16) (func(io.Reade
 
 				value := math.Float64frombits(binary.LittleEndian.Uint64(buf[:8]))
 
-				return clampFloat32(float32(value), -1, 1), nil
+				return float32(value), nil
 			}, nil
 		default:
 			return nil, fmt.Errorf("%w: %d", errUnhandledFloatBitDepth, bitsPerSample)

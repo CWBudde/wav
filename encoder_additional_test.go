@@ -234,7 +234,7 @@ func TestEncoderWriteIEEEFloat64RoundTrip(t *testing.T) {
 		t.Fatalf("expected %d samples, got %d", len(in.Data), len(buf.Data))
 	}
 
-	expected := []float32{-1, -0.5, 0, 0.5, 1}
+	expected := in.Data
 	for i := range expected {
 		if !float32ApproxEqual(buf.Data[i], expected[i], 1e-6) {
 			t.Fatalf("sample %d mismatch, expected %.6f got %.6f", i, expected[i], buf.Data[i])
