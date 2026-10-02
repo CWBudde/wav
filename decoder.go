@@ -1,7 +1,6 @@
 package wav
 
 import (
-	"bytes"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -75,6 +74,7 @@ type Decoder struct {
 	CompressedSamples uint32
 
 	gsmDec            *gsmDecoder
+	pcmScratch        []byte
 	unknownChunkOrder int
 }
 
@@ -344,9 +344,9 @@ func (d *Decoder) PCMBuffer(buf *audio.Float32Buffer) (n int, err error) {
 		return 0, ErrPCMChunkNotFound
 	}
 
-	format := &audio.Format{
-		NumChannels: int(d.NumChans),
-		SampleRate:  int(d.SampleRate),
+	format := buf.Format
+	if format == nil || format.NumChannels != int(d.NumChans) || format.SampleRate != int(d.SampleRate) {
+		format = &audio.Format{NumChannels: int(d.NumChans), SampleRate: int(d.SampleRate)}
 	}
 
 	buf.SourceBitDepth = int(d.BitDepth)
@@ -371,7 +371,7 @@ func (d *Decoder) PCMBuffer(buf *audio.Float32Buffer) (n int, err error) {
 		return 0, unsupportedCompressedFormatError(d.WavAudioFormat)
 	}
 
-	decodeF, err := sampleDecodeFloat32Func(int(d.BitDepth), d.WavAudioFormat)
+	decodeBlock, err := sampleDecodeBlockFunc(int(d.BitDepth), d.WavAudioFormat)
 	if err != nil {
 		return 0, fmt.Errorf("could not get sample decode func %w", err)
 	}
@@ -380,52 +380,25 @@ func (d *Decoder) PCMBuffer(buf *audio.Float32Buffer) (n int, err error) {
 	// populate a file buffer to avoid multiple very small reads
 	// we need to cap the buffer size to not be bigger than the pcm chunk.
 	size := len(buf.Data) * bPerSample
-	tmpBuf := make([]byte, size)
-
-	var tmp int
-
-	tmp, err = d.PCMChunk.R.Read(tmpBuf)
-	if err != nil {
-		if errors.Is(err, io.EOF) {
-			return tmp, nil
-		}
-
-		return tmp, fmt.Errorf("failed to read PCM data: %w", err)
+	if cap(d.pcmScratch) < size {
+		d.pcmScratch = make([]byte, size)
 	}
 
-	if tmp == 0 {
-		return tmp, nil
-	}
-
-	bufR := bytes.NewReader(tmpBuf[:tmp])
-	sampleBuf := make([]byte, bPerSample)
-
-	var misaligned bool
-	if tmp%bPerSample > 0 {
-		misaligned = true
-	}
-
-	// Note that we populate the buffer even if the
-	// size of the buffer doesn't fit an even number of frames.
-	for n = 0; n < len(buf.Data); n++ {
-		buf.Data[n], err = decodeF(bufR, sampleBuf)
-		if err != nil {
-			// the last sample isn't a full sample but just padding.
-			if misaligned {
-				n--
-			}
-
-			break
-		}
-	}
+	tmpBuf := d.pcmScratch[:size]
+	read, readErr := io.ReadFull(d.PCMChunk.R, tmpBuf)
+	n = read / bPerSample
+	decodeBlock(buf.Data[:n], tmpBuf[:n*bPerSample])
 
 	buf.Format = format
 
-	if errors.Is(err, io.EOF) {
-		err = nil
+	if readErr != nil && !errors.Is(readErr, io.EOF) && !errors.Is(readErr, io.ErrUnexpectedEOF) {
+		return n, fmt.Errorf("failed to read PCM data: %w", readErr)
 	}
 
-	return n, err
+	// As with the sample reader, ignore an incomplete trailing sample in
+	// padded legacy files. ReadFull prevents short underlying reads from
+	// being mistaken for trailing padding inside the stream.
+	return n, nil
 }
 
 // Format returns the audio format of the decoded content.

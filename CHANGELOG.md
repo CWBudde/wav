@@ -14,5 +14,8 @@
   advancing over it before subsequent chunks.
 - Allocate the encoder's temporary buffer lazily instead of reserving one minute
   of audio at construction. Each `Write` continues to flush its samples.
+- Decode streaming PCM, IEEE float, and G.711 samples directly from reusable
+  byte blocks. Eliminate per-sample readers and repeated byte-buffer allocations;
+  short reads are assembled into complete samples before conversion.
 - Validate raw float payload bits, PCM8 clipping and odd-chunk boundaries,
   post-data metadata, and lazy streaming buffer retention in regression tests.
