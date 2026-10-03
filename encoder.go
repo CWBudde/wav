@@ -541,7 +541,11 @@ func (e *Encoder) writeMetadata() error {
 		return err
 	}
 
-	chunkData := encodeInfoChunk(e)
+	chunkData, err := encodeInfoChunk(e)
+	if err != nil {
+		return fmt.Errorf("encode INFO: %w", err)
+	}
+
 	if len(chunkData) == 0 {
 		return nil
 	}

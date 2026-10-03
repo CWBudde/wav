@@ -125,6 +125,7 @@ func TestDecoder_ReadMetadata(t *testing.T) {
 					{CuePointID: [4]byte{0, 0, 2, 0}, Type: 1024, Start: 0, End: 107999, Fraction: 0, PlayCount: 0},
 				},
 			},
+			AssociatedData: expectedFLAssociatedData(),
 		}},
 	}
 

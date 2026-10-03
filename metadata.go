@@ -54,6 +54,37 @@ type Metadata struct {
 	TrackNbr string
 	// CuePoints is a list of cue points in the wav file.
 	CuePoints []*CuePoint
+	// AssociatedData stores labels, notes and region lengths from LIST/adtl.
+	AssociatedData *AssociatedData
+}
+
+// AssociatedData represents a LIST/adtl associated-data list. Cue references
+// are preserved even when this list precedes cue points in the file.
+type AssociatedData struct {
+	Labels  []CueLabel
+	Notes   []CueLabel
+	Regions []CueRegion
+	// UnknownSubchunks preserves unrecognized adtl records in encounter order.
+	UnknownSubchunks []RawChunk
+}
+
+// CueLabel is a labl or note record. Text excludes the terminating NUL byte.
+type CueLabel struct {
+	CuePointID uint32
+	Text       string
+}
+
+// CueRegion is an ltxt record describing a sample-frame length at its cue.
+// PurposeID and locale/code-page fields are retained without interpretation.
+type CueRegion struct {
+	CuePointID   uint32
+	SampleLength uint32
+	PurposeID    [4]byte
+	Country      uint16
+	Language     uint16
+	Dialect      uint16
+	CodePage     uint16
+	Text         string
 }
 
 // BroadcastExtension represents metadata stored in the BWF bext chunk.

@@ -74,8 +74,12 @@ func (r *ChunkRegistry) Decode(dec *Decoder, chnk *riff.Chunk) (bool, error) {
 func sniffListType(chnk *riff.Chunk) ([4]byte, error) {
 	var listType [4]byte
 
-	if chnk == nil || chnk.ID != CIDList || chnk.Size < 4 {
+	if chnk == nil || chnk.ID != CIDList {
 		return listType, nil
+	}
+
+	if chnk.Size < 4 {
+		return listType, fmt.Errorf("%w: LIST chunk requires a four-byte type", errInvalidMetadata)
 	}
 
 	var head [4]byte
@@ -122,16 +126,25 @@ func (h *factChunkHandler) Encode(_ *Encoder) error {
 
 type listChunkHandler struct{}
 
-func (h *listChunkHandler) CanHandle(chunkID [4]byte, _ [4]byte) bool {
-	return chunkID == CIDList
+func (h *listChunkHandler) CanHandle(chunkID [4]byte, listType [4]byte) bool {
+	return chunkID == CIDList && (listType == [4]byte{'I', 'N', 'F', 'O'} || string(listType[:]) == associatedDataType)
 }
 
 func (h *listChunkHandler) Decode(d *Decoder, ch *riff.Chunk) error {
 	return DecodeListChunk(d, ch)
 }
 
-func (h *listChunkHandler) Encode(_ *Encoder) error {
-	return errChunkEncodeNotSupported
+func (h *listChunkHandler) Encode(encoder *Encoder) error {
+	if encoder == nil || encoder.Metadata == nil || encoder.Metadata.AssociatedData == nil {
+		return nil
+	}
+
+	chunk, err := EncodeAssociatedDataChunk(encoder.Metadata.AssociatedData)
+	if err != nil {
+		return err
+	}
+
+	return encoder.writeRawChunk(chunk)
 }
 
 type smplChunkHandler struct{}
@@ -158,8 +171,17 @@ func (h *cueChunkHandler) Decode(d *Decoder, ch *riff.Chunk) error {
 	return DecodeCueChunk(d, ch)
 }
 
-func (h *cueChunkHandler) Encode(_ *Encoder) error {
-	return errChunkEncodeNotSupported
+func (h *cueChunkHandler) Encode(encoder *Encoder) error {
+	if encoder == nil || encoder.Metadata == nil || len(encoder.Metadata.CuePoints) == 0 {
+		return nil
+	}
+
+	chunk, err := EncodeCueChunk(encoder.Metadata.CuePoints)
+	if err != nil {
+		return err
+	}
+
+	return encoder.writeRawChunk(chunk)
 }
 
 type bextChunkHandler struct{}

@@ -73,9 +73,12 @@ type Decoder struct {
 	// compressed formats (diagnostic/informational only).
 	CompressedSamples uint32
 
-	gsmDec            *gsmDecoder
-	pcmScratch        []byte
-	unknownChunkOrder int
+	gsmDec               *gsmDecoder
+	pcmScratch           []byte
+	unknownChunkOrder    int
+	metadataRead         bool
+	metadataBytes        int64
+	headerMetadataRewind bool
 }
 
 // NewDecoder creates a decoder for the passed wav reader.
@@ -101,6 +104,8 @@ func (d *Decoder) Seek(offset int64, whence int) (int64, error) {
 // Rewind allows the decoder to be rewound to the beginning of the PCM data.
 // This is useful if you want to keep on decoding the same file in a loop.
 func (d *Decoder) Rewind() error {
+	metadata := d.Metadata
+
 	_, err := d.r.Seek(0, io.SeekStart)
 	if err != nil {
 		return fmt.Errorf("failed to seek back to the start %w", err)
@@ -116,7 +121,16 @@ func (d *Decoder) Rewind() error {
 	d.FmtChunk = nil
 	d.gsmDec = nil
 
+	d.metadataBytes = 0
+	if d.metadataRead {
+		d.Metadata = nil
+	}
+
 	err = d.FwdToPCM()
+	if d.metadataRead {
+		d.Metadata = metadata
+	}
+
 	if err != nil {
 		return fmt.Errorf("failed to seek to the PCM data: %w", err)
 	}
@@ -193,9 +207,21 @@ func (d *Decoder) ReadInfo() {
 // The entire file will be read and should be rewinded if more data must be
 // accessed.
 func (d *Decoder) ReadMetadata() {
-	if d.Metadata != nil {
+	if d.metadataRead {
 		return
 	}
+
+	if _, err := d.r.Seek(0, io.SeekStart); err != nil {
+		d.err = fmt.Errorf("rewind metadata: %w", err)
+		return
+	}
+
+	d.parser = riff.New(d.r)
+	d.NumChans = 0
+	d.dataPadding = false
+	d.PCMChunk = nil
+	d.Metadata = nil
+	d.metadataBytes = 0
 
 	d.ReadInfo()
 
@@ -205,38 +231,65 @@ func (d *Decoder) ReadMetadata() {
 
 	d.UnknownChunks = nil
 	d.unknownChunkOrder = 0
+	d.Metadata = nil
+	d.metadataBytes = 0
 
 	var (
 		chunk *riff.Chunk
 		err   error
 	)
 
-	seenData := d.PCMChunk != nil
+	seenData := false
+
 	for err == nil {
 		chunk, err = d.NextChunk()
 		if err != nil {
+			if errors.Is(err, io.EOF) {
+				d.metadataRead = true
+			}
+
 			break
 		}
 
 		d.unknownChunkOrder++
 
-		if chunk.ID == riff.DataFormatID {
-			seenData = true
-
-			chunk.Drain()
-
-			continue
-		}
-
-		handled, handleErr := d.decodeChunkViaRegistry(chunk)
-		if handleErr != nil && !errors.Is(handleErr, io.EOF) {
-			d.err = handleErr
-		}
-
-		if !handled {
-			d.captureUnknownChunk(chunk, !seenData)
+		if d.err = d.readMetadataChunk(chunk, &seenData); d.err != nil {
+			return
 		}
 	}
+}
+
+func (d *Decoder) readMetadataChunk(chunk *riff.Chunk, seenData *bool) error {
+	if chunk.ID == riff.DataFormatID || chunk.ID == riff.FmtID {
+		if chunk.ID == riff.DataFormatID {
+			*seenData = true
+		}
+
+		chunk.Drain()
+
+		return nil
+	}
+
+	if chunk.Size < 0 || chunk.Size > MaxMetadataChunkBytes || d.metadataBytes+int64(chunk.Size) > maxMetadataBytes {
+		return fmt.Errorf("%w: metadata exceeds chunk/aggregate byte limits", errInvalidMetadata)
+	}
+
+	d.metadataBytes += int64(chunk.Size)
+
+	handled, err := d.decodeChunkViaRegistry(chunk)
+	if err != nil {
+		if errors.Is(err, io.EOF) {
+			err = fmt.Errorf("truncated metadata: %w", io.ErrUnexpectedEOF)
+		}
+
+		return err
+	}
+
+	if !handled {
+		d.captureUnknownChunk(chunk, !*seenData)
+	}
+
+	return d.err
 }
 
 // FwdToPCM forwards the underlying reader until the start of the PCM chunk.
@@ -420,50 +473,48 @@ func (d *Decoder) NextChunk() (*riff.Chunk, error) {
 		return nil, d.err
 	}
 
+	if d.headerMetadataRewind {
+		d.Metadata = nil
+		d.headerMetadataRewind = false
+	}
+
+	chunk, err := d.nextChunkPayload()
+	d.err = err
+
+	return chunk, err
+}
+
+// Chunk sizes are payload-only for all IDs. Alignment is consumed when moving
+// to the next chunk, never captured as raw metadata or passed to a decoder.
+func (d *Decoder) nextChunkPayload() (*riff.Chunk, error) {
 	if d.dataPadding {
-		if _, d.err = io.CopyN(io.Discard, d.r, 1); d.err != nil {
-			return nil, fmt.Errorf("failed to read data chunk padding: %w", d.err)
+		if _, err := io.CopyN(io.Discard, d.r, 1); err != nil {
+			if errors.Is(err, io.EOF) {
+				err = io.ErrUnexpectedEOF
+			}
+
+			return nil, fmt.Errorf("read chunk padding: %w", err)
 		}
 
 		d.dataPadding = false
 	}
 
-	var (
-		id   [4]byte
-		size uint32
-	)
-
-	id, size, d.err = d.parser.IDnSize()
-	if d.err != nil {
-		d.err = fmt.Errorf("error reading chunk header - %w", d.err)
-		return nil, d.err
+	var header [8]byte
+	if _, err := io.ReadFull(d.r, header[:]); err != nil {
+		return nil, fmt.Errorf("read chunk header: %w", err)
 	}
 
-	// TODO: any reason we don't use d.parser.NextChunk (riff.NextChunk) here?
-	// It correctly handles the misaligned chunk.
-
-	// TODO: copied over from riff.parser.NextChunk
-	// all RIFF chunks (including WAVE "data" chunks) must be word aligned.
-	// If the data uses an odd number of bytes, a padding byte with a value of zero
-	// must be placed at the end of the sample data.
-	// The "data" chunk header's size should not include this byte.
-	if size%2 == 1 {
-		if id == riff.DataFormatID {
-			// Audio readers must not treat the alignment byte as a sample.
-			// Consume it only when moving on to the next chunk.
-			d.dataPadding = true
-		} else {
-			size++
-		}
+	size := binary.LittleEndian.Uint32(header[4:])
+	if uint64(size) > uint64(math.MaxInt) {
+		return nil, fmt.Errorf("%w: chunk size exceeds platform int limit", errInvalidMetadata)
 	}
 
-	chnk := &riff.Chunk{
-		ID:   id,
-		Size: int(size),
-		R:    io.LimitReader(d.r, int64(size)),
-	}
+	var id [4]byte
+	copy(id[:], header[:4])
 
-	return chnk, d.err
+	d.dataPadding = size&1 != 0
+
+	return &riff.Chunk{ID: id, Size: int(size), R: io.LimitReader(d.r, int64(size))}, nil
 }
 
 // Duration returns the time duration for the current audio container.
@@ -565,25 +616,20 @@ func (d *Decoder) readHeaders() error {
 		rewindBytes int64
 	)
 
-	for err == nil {
-		chunk, err = d.parser.NextChunk()
+	for {
+		chunk, err = d.nextChunkPayload()
 		if err != nil {
-			break
+			return fmt.Errorf("locate fmt chunk: %w", err)
 		}
 
 		if chunk.ID == riff.FmtID {
-			err := d.processFmtChunk(chunk, rewindBytes)
-			if err != nil {
-				return err
-			}
-
-			break
+			return d.processFmtChunk(chunk, rewindBytes)
 		}
 
-		d.processNonFmtChunk(chunk, &rewindBytes)
+		if err = d.processNonFmtChunk(chunk, &rewindBytes); err != nil {
+			return err
+		}
 	}
-
-	return d.err
 }
 
 func (d *Decoder) processFmtChunk(chunk *riff.Chunk, rewindBytes int64) error {
@@ -600,26 +646,48 @@ func (d *Decoder) processFmtChunk(chunk *riff.Chunk, rewindBytes int64) error {
 	d.AvgBytesPerSec = d.parser.AvgBytesPerSec
 
 	if rewindBytes > 0 {
-		d.r.Seek(-(rewindBytes + int64(chunk.Size) + 8), 1)
+		if _, err := d.r.Seek(-(rewindBytes + int64(chunk.Size) + 8), io.SeekCurrent); err != nil {
+			return fmt.Errorf("rewind chunks before fmt: %w", err)
+		}
+
+		d.dataPadding = false
+		d.headerMetadataRewind = true
 	}
 
 	return nil
 }
 
-func (d *Decoder) processNonFmtChunk(chunk *riff.Chunk, rewindBytes *int64) {
-	if handled, _ := d.decodeHeaderChunkViaRegistry(chunk); handled {
-		*rewindBytes += int64(chunk.Size) + 8
-	} else {
-		// unexpected chunk order, might be a bext chunk
-		*rewindBytes += int64(chunk.Size) + 8
-		// drain the chunk
-		io.CopyN(io.Discard, d.r, int64(chunk.Size))
+func (d *Decoder) processNonFmtChunk(chunk *riff.Chunk, rewindBytes *int64) error {
+	*rewindBytes += int64(chunk.Size) + int64(chunk.Size&1) + 8
+	switch chunk.ID {
+	case CIDList, CIDSmpl, CIDBext, CIDCart:
+		if chunk.Size < 0 || int64(chunk.Size) > maxMetadataBytes-d.metadataBytes {
+			return fmt.Errorf("%w: header metadata exceeds aggregate byte limit", errInvalidMetadata)
+		}
+
+		d.metadataBytes += int64(chunk.Size)
 	}
+
+	if handled, err := d.decodeHeaderChunkViaRegistry(chunk); handled || err != nil {
+		if err != nil {
+			return err
+		}
+	} else {
+		if _, err := io.CopyN(io.Discard, chunk, int64(chunk.Size)); err != nil {
+			return fmt.Errorf("skip header chunk: %w", err)
+		}
+	}
+
+	return nil
 }
 
 func (d *Decoder) decodeChunkViaRegistry(chunk *riff.Chunk) (bool, error) {
 	if d == nil || chunk == nil {
 		return false, nil
+	}
+
+	if chunk.ID != riff.FmtID && chunk.ID != riff.DataFormatID && (chunk.Size < 0 || chunk.Size > MaxMetadataChunkBytes) {
+		return false, fmt.Errorf("%w: metadata chunk exceeds %d-byte limit", errInvalidMetadata, MaxMetadataChunkBytes)
 	}
 
 	if d.chunks == nil {
@@ -733,7 +801,7 @@ func (d *Decoder) captureUnknownChunk(chunk *riff.Chunk, beforeData bool) {
 		return
 	}
 
-	data, err := io.ReadAll(chunk)
+	data, err := metadataPayload(chunk)
 	if err != nil {
 		d.err = fmt.Errorf("failed to read unknown chunk %s: %w", chunk.ID, err)
 
