@@ -265,6 +265,14 @@ func (e *Encoder) writeHeader() error {
 // Write encodes and writes the passed buffer to the underlying writer.
 // Don't forget to Close() the encoder or the file won't be valid.
 func (e *Encoder) Write(buf *audio.Float32Buffer) error {
+	if err := e.startDataChunk(); err != nil {
+		return err
+	}
+
+	return e.addBuffer(buf)
+}
+
+func (e *Encoder) startDataChunk() error {
 	if !e.wroteHeader {
 		err := e.writeHeader()
 		if err != nil {
@@ -299,7 +307,7 @@ func (e *Encoder) Write(buf *audio.Float32Buffer) error {
 		}
 	}
 
-	return e.addBuffer(buf)
+	return nil
 }
 
 // WriteFrame writes a single frame of data to the underlying writer.

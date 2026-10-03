@@ -1,5 +1,17 @@
 # Changelog
 
+## v0.1.3
+
+- Add `Encoder.WriteInt(*audio.IntBuffer)` for direct interleaved signed PCM
+  8/16/24/32 codes without floating-point conversion. PCM32 low bits and signed
+  endpoints remain exact; PCM8 writes the WAV unsigned bias of 128.
+- Validate format, whole frames, source depth, signed code ranges and RIFF/header
+  bounds before mutating encoder state or writing bytes. Streaming calls reuse
+  byte scratch and preserve padding, successive writes and annotation chunks.
+- Native and WASM byte goldens cover exact PCM codes, chunk partition parity,
+  stereo/empty/mixed writes, odd data/chunk padding, metadata and atomic invalid
+  input rejection.
+
 ## v0.1.2
 
 - Add bounded cue encoding and atomic count-validated decoding. Cue positions
