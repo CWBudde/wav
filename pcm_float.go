@@ -10,12 +10,12 @@ const (
 	wavFormatGSM610     = 49
 	wavFormatExtensible = 0xFFFE
 	maxPCMInt8Unsigned  = 255
-	scalePCMInt8        = 127.5
+	scalePCMInt8        = 128.0
 	scalePCMInt16       = 32768.0
 	scalePCMInt24       = 8388608.0
 	scalePCMInt32       = 2147483648.0
-	floatPCM8Center     = 127.5
-	floatPCM8Scale      = 127.5
+	floatPCM8Center     = 128.0
+	floatPCM8Scale      = 128.0
 	maxPCMInt16         = 32767
 	maxPCMInt24         = 8388607
 	maxPCMInt32         = 2147483647

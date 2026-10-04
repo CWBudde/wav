@@ -58,7 +58,7 @@ func TestNormalizePCMInt(t *testing.T) {
 		bitDepth int
 		want     float32
 	}{
-		{"8bit center", 128, 8, 0.003921628},
+		{"8bit center", 128, 8, 0},
 		{"8bit min", 0, 8, -1},
 		{"16bit max", 32767, 16, 0.999969482},
 		{"16bit zero", 0, 16, 0},
@@ -123,5 +123,24 @@ func TestFloat32ToPCMInt32(t *testing.T) {
 				t.Fatalf("float32ToPCMInt32(%f, %d)=%d, want %d", tt.value, tt.bitDepth, got, tt.want)
 			}
 		})
+	}
+}
+
+// Every unsigned byte has an exact centered power-of-two representation.
+func TestPCM8CenteredRoundTrip(t *testing.T) {
+	for value := 0; value < 256; value++ {
+		sample := normalizePCMInt(value, 8)
+		want := float32(value-128) / 128
+		if sample != want {
+			t.Fatalf("byte %d: got %g, want %g", value, sample, want)
+		}
+		if got := float32ToPCMUint8(sample); got != uint8(value) {
+			t.Fatalf("byte %d reencoded as %d", value, got)
+		}
+	}
+	for _, sample := range []float32{1.0 / 128, -1.0 / 128, .5, -.5} {
+		if got := normalizePCMInt(int(float32ToPCMUint8(sample)), 8); got != sample {
+			t.Fatalf("sample %g redecoded as %g", sample, got)
+		}
 	}
 }
